@@ -1,0 +1,97 @@
+#+TITLE: Buckybase
+#+AUTHOR: Manuel Simoni
+#+EMAIL: msimoni@gmail.com
+
+* Infoset
+
+The /infoset/ is a data model similar to JSON but with the following
+extensions:
+
+ - big (unlimited size) decimal numbers instead of floats
+
+ - dictionary keys may be arbitrary objects instead of just strings
+
+ - binary data is natively supported
+
+** Elements
+
+*** Boolean
+
+Maps to JSON booleans =true= and =false=.
+
+*** Number
+
+Arbitrary precision decimal number.
+
+Maps to JSON number =-1.234= or object ={"$n": "-1.234"}=.
+
+The ECMAScript regex for numbers is:
+
+#+BEGIN_EXAMPLE
+/^(\+|-)?(\d+(\.\d+)?)$/
+#+END_EXAMPLE
+
+*** String
+
+Maps to JSON string "=foo=".
+
+*** List
+
+Maps to JSON list =[1, 2, 3]=.
+
+*** Dictionary
+
+Dictionary with arbitrary keys and values.
+
+Maps to JSON object:
+
+#+BEGIN_EXAMPLE
+{ "$d": [
+    [12, "value-2"],
+    ["key-1", "value-1"]
+  ]
+}
+#+END_EXAMPLE
+
+Keys must be unique.
+
+*** Binary
+
+Maps to JSON object containing Base64-encoded data.
+
+Optionally, may also have a =type= property containing MIME type
+string.  Defaults to "application/octet-stream".
+
+#+BEGIN_EXAMPLE
+{ "$b": "aGVsbG8gd29ybGQK", "type": "text/plain" }
+#+END_EXAMPLE
+
+
+** API
+
+*** =base.bool_val(jsbool) -> bool=
+
+Converts a JS boolean to an Infoset boolean.
+
+*** =base.num_val(numrepr) -> num=
+
+Converts a JS number or a string containing a decimal number to an
+Infoset number.
+
+*** =base.str_val(jsstr) -> str=
+
+Converts a JS string to an Infoset string.
+
+*** =base.list_val(array) -> list=
+
+Converts a JS array to an Infoset list.
+
+*** =base.dict_val(entries) -> dict=
+
+Converts a JS array containing 2-item entry arrays to an Infoset dictionary.
+
+*** =base.bin_val(base64string, [mime_type]) -> bin=
+
+Converts a JS string containing Base64-encoded binary data and an
+optional MIME type string to an Infoset binary.
+
