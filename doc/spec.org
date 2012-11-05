@@ -1,4 +1,4 @@
-#+TITLE: Buckybase
+#+TITLE: Buckybase Specification
 #+AUTHOR: Manuel Simoni
 #+EMAIL: msimoni@gmail.com
 
@@ -23,7 +23,7 @@ Maps to JSON booleans =true= and =false=.
 
 Arbitrary precision decimal number.
 
-Maps to JSON number =-1.234= or object ={"$n": "-1.234"}=.
+Maps to JSON number =-1.234= or object ={"bb$n": "-1.234"}=.
 
 The ECMAScript regex for numbers is:
 
@@ -46,7 +46,7 @@ Dictionary with arbitrary keys and values.
 Maps to JSON object:
 
 #+BEGIN_EXAMPLE
-{ "$d": [
+{ "bb$d": [
     [12, "value-2"],
     ["key-1", "value-1"]
   ]
@@ -55,15 +55,22 @@ Maps to JSON object:
 
 Keys must be unique.
 
+As a special case, dictionaries with only string keys (that do not
+start with =bb$=) may be written as ordinary JSON dictionaries, so ={
+"a": 1, "b": 2 }= is a valid dictionary.
+
 *** Binary
 
-Maps to JSON object containing Base64-encoded data.
+Maps to JSON object containing Base64-encoded data compatible with
+Mozilla's =window.btoa= and =window.atob= functions.
 
 Optionally, may also have a =type= property containing MIME type
 string.  Defaults to "application/octet-stream".
 
+A binary containing the string "hello world!":
+
 #+BEGIN_EXAMPLE
-{ "$b": "aGVsbG8gd29ybGQK", "type": "text/plain" }
+{ "bb$b": "aGVsbG8gd29ybGQh", "type": "text/plain" }
 #+END_EXAMPLE
 
 
@@ -94,4 +101,32 @@ Converts a JS array containing 2-item entry arrays to an Infoset dictionary.
 
 Converts a JS string containing Base64-encoded binary data and an
 optional MIME type string to an Infoset binary.
+
+* Content
+
+** Tree
+
+A tree is an infoset dictionary containing an =entries= dictionary
+mapping file names to files.
+
+#+BEGIN_EXAMPLE
+{
+  "type": "tree",
+  "entries": {
+    "hello-world.txt": ...,
+    "photo.jpg": ...
+  }
+}
+#+END_EXAMPLE
+
+** Blob
+
+A tree is an infoset dictionary containing an =data= infoset value.
+
+#+BEGIN_EXAMPLE
+{
+  "type": "blob",
+  "data": { "bb$b": "aGVsbG8gd29ybGQK", "type": "text/plain" }
+}
+#+END_EXAMPLE
 

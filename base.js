@@ -14,7 +14,7 @@ var base = (function() {
     function Num(numrepr) {
         numrepr = numrepr.toString();
         if (!is_decimal(numrepr)) err("Not decimal", numrepr);
-        this.$n = numrepr;
+        this.bb$n = numrepr;
     }
     function num_val(numrepr) { return new Num(numrepr); }
 
@@ -39,23 +39,19 @@ var base = (function() {
             if ((!(entry instanceof Array)) || (entry.length !== 2))
                 err("Bad dictionary entry", entry);
         }
-        this.$d = entries;
+        this.bb$d = entries;
     }
     function dict_val(entries) { return new Dict(entries); }
 
     function Bin(b64, mime_type) {
         if (!is_string(b64)) err("Not a Base64 string", b64);
-        this.$b = b64;
+        this.bb$b = b64;
         if (mime_type !== undefined) {
             if (!is_string(mime_type)) err("Not a MIME type string", mime_type);
             this.type = mime_type;
         }
     }
     function bin_val(b64, mime_type) { return new Bin(b64, mime_type); }
-
-    function empty_zipper() {}
-    function zipper_link(z, name) {}
-    function zipper_unlink(z, name) {}
 
     function err(msg, arg) { throw msg + ": " + JSON.stringify(arg); }
     function is_string(s) { return s.indexOf !== undefined; }
@@ -83,10 +79,10 @@ function base_test() {
     assert(JSON.stringify(base.bool_val(false)) === "false");
     should_throw(function() { base.bool_val(12); });
     should_throw(function() { base.bool_val("foo"); });
-    assert(JSON.stringify(base.num_val(-12.34)) === '{"$n":"-12.34"}');
-    assert(JSON.stringify(base.num_val("-12.34")) === '{"$n":"-12.34"}');
-    assert(JSON.stringify(base.num_val(0.1)) === '{"$n":"0.1"}');
-    assert(JSON.stringify(base.num_val("0.1")) === '{"$n":"0.1"}');
+    assert(JSON.stringify(base.num_val(-12.34)) === '{"bb$n":"-12.34"}');
+    assert(JSON.stringify(base.num_val("-12.34")) === '{"bb$n":"-12.34"}');
+    assert(JSON.stringify(base.num_val(0.1)) === '{"bb$n":"0.1"}');
+    assert(JSON.stringify(base.num_val("0.1")) === '{"bb$n":"0.1"}');
     should_throw(function() { base.num_val("foo"); });
     should_throw(function() { base.num_val(NaN); });
     should_throw(function() { base.num_val("1."); });
@@ -99,18 +95,18 @@ function base_test() {
     assert(JSON.stringify(base.str_val("\"")) === '"\\""');
     should_throw(function() { base.str_val(12); });
     should_throw(function() { base.str_val(true); });
-    assert(JSON.stringify(base.dict_val([])) === '{"$d":[]}');
-    assert(JSON.stringify(base.dict_val([[1,2]])) === '{"$d":[[1,2]]}');
-    assert(JSON.stringify(base.dict_val([[1,2], [3,4]])) === '{"$d":[[1,2],[3,4]]}');
+    assert(JSON.stringify(base.dict_val([])) === '{"bb$d":[]}');
+    assert(JSON.stringify(base.dict_val([[1,2]])) === '{"bb$d":[[1,2]]}');
+    assert(JSON.stringify(base.dict_val([[1,2], [3,4]])) === '{"bb$d":[[1,2],[3,4]]}');
     should_throw(function() { base.dict_val(12); });
     should_throw(function() { base.dict_val(true); });
     should_throw(function() { base.dict_val([[]]); });
     should_throw(function() { base.dict_val([[1]]); });
     should_throw(function() { base.dict_val([[1, 2], []]); });
     should_throw(function() { base.dict_val([[1, 2], [3]]); });
-    assert(JSON.stringify(base.bin_val("aGVsbG8gd29ybGQK")) === '{"$b":"aGVsbG8gd29ybGQK"}');
+    assert(JSON.stringify(base.bin_val("aGVsbG8gd29ybGQK")) === '{"bb$b":"aGVsbG8gd29ybGQK"}');
     assert(JSON.stringify(base.bin_val("aGVsbG8gd29ybGQK", "text/plain"))
-           === '{"$b":"aGVsbG8gd29ybGQK","type":"text/plain"}');
+           === '{"bb$b":"aGVsbG8gd29ybGQK","type":"text/plain"}');
     should_throw(function() { base.bin_val(1); });
     should_throw(function() { base.bin_val(true); });
     should_throw(function() { base.bin_val("aGVsbG8gd29ybGQK", 1); });
