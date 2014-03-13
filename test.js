@@ -65,8 +65,8 @@ assert_equals(buckybase.string_from_uint8array(cheers_git_data.data),
               buckybase.string_from_uint8array(buckybase.object_to_git_data(buckybase.object_from_git_uint8array(buckybase.object_to_git_data(cheers).data)).data));
 
 var tree = buckybase.make_tree();
-buckybase.tree_put(tree, buckybase.utf8_encode("hello"), buckybase.make_tree_entry(hello_hash, buckybase.BLOB_TYPE));
-buckybase.tree_put(tree, buckybase.utf8_encode("cheers"), buckybase.make_tree_entry(cheers_hash, buckybase.BLOB_TYPE));
+buckybase.tree_put(tree, buckybase.utf8_encode("hello"), buckybase.make_tree_entry_for_blob(hello_hash));
+buckybase.tree_put(tree, buckybase.utf8_encode("cheers"), buckybase.make_tree_entry_for_blob(cheers_hash));
 var tree_git_data = buckybase.object_to_git_data(tree);
 var tree_hash = tree_git_data.hash;
 assert_equals("93a3d08ded05ac01b8a0b917dd5b0ac101d52cac", tree_hash.toString());

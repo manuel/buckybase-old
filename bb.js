@@ -71,8 +71,16 @@ buckybase.TreeEntry = function TreeEntry(hash, type) {
     this.type = buckybase.assert_tree_entry_type(type);
 }
 
-buckybase.make_tree_entry = function(hash, type) {
+buckybase.internal_make_tree_entry = function(hash, type) {
     return new buckybase.TreeEntry(hash, type);
+}
+
+buckybase.make_tree_entry_for_blob = function(hash) {
+    return buckybase.internal_make_tree_entry(hash, buckybase.BLOB_TYPE);
+}
+
+buckybase.make_tree_entry_for_tree = function(hash) {
+    return buckybase.internal_make_tree_entry(hash, buckybase.TREE_TYPE);
 }
 
 buckybase.get_tree_entry_hash = function(entry) {
@@ -286,7 +294,7 @@ buckybase.add_tree_entry_from_git_uint8array = function(tree, bin) {
     var hash_off = ix + 1;
     var total_len = hash_off + buckybase.HASH_LENGTH;
     var hash = buckybase.make_hash(bin.subarray(hash_off, total_len));
-    buckybase.tree_put(tree, buckybase.utf8_encode(name), buckybase.make_tree_entry(hash, type));
+    buckybase.tree_put(tree, buckybase.utf8_encode(name), buckybase.internal_make_tree_entry(hash, type));
     return total_len;
 }
 
