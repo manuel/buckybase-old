@@ -1,61 +1,78 @@
 var buckybase = Object.create(null);
 
-// Content-addressed store
-
-buckybase.Blob = function(data) {
-    this.data = buckybase.assert_type(data, Uint8Array);
-}
-
-buckybase.Tree = function() {
-    this.entries = Object.create(null);
-}
-
-buckybase.Commit = function(tree_hash, parent_hashes, author, committer, message) {
-    this.tree_hash = buckybase.assert_type(tree_hash, buckybase.Hash);
-    this.parent_hashes = buckybase.assert_array_type(parent_hashes, buckybase.Hash);
-    this.author = buckybase.assert_type(author, buckybase.Committer);
-    this.committer = buckybase.assert_type(committer, buckybase.Committer);
-    this.message = buckybase.assert_type(message, buckybase.UTF8);
-}
-
-buckybase.Committer = function(name, email, timestamp, timezone) {
-    this.name = buckybase.assert_type(name, buckybase.UTF8);
-    this.email = buckybase.assert_type(email, buckybase.UTF8);
-    this.timestamp = buckybase.assert_number(timestamp);
-    this.timezone = buckybase.assert_type(timezone, buckybase.UTF8);
-}
-
-buckybase.Committer.prototype.toString = function() {
-    return buckybase.get_utf8_string(this.name) + 
-        " <" + buckybase.get_utf8_string(this.email) + "> "
-        + this.timestamp + " " 
-        + buckybase.get_utf8_string(this.timezone);
-}
-
-buckybase.make_commit = function(tree_hash, parent_hashes, author, committer, message) {
-    return new buckybase.Commit(tree_hash, parent_hashes, author, committer, message);
-}
-
-buckybase.make_committer = function(name, email, timestamp, timezone) {
-    return new buckybase.Committer(name, email, timestamp, timezone);
-}
+//// Content-addressed store
 
 buckybase.TREE_TYPE = "tree";
 buckybase.BLOB_TYPE = "blob";
 buckybase.COMMIT_TYPE = "commit";
 
-buckybase.TreeEntry = function(hash, type) {
+buckybase.TREE_MODE = "40000";
+buckybase.BLOB_MODE = "100644";
+
+buckybase.COMMIT_TREE = "tree";
+buckybase.COMMIT_PARENT = "parent";
+buckybase.COMMIT_AUTHOR = "author";
+buckybase.COMMIT_COMMITTER = "committer";
+
+/// Data model
+
+// Blob
+
+buckybase.Blob = function Blob(data) {
+    this.data = buckybase.assert_type(data, Uint8Array);
+}
+
+buckybase.make_blob = function(data) {
+    return new buckybase.Blob(data);
+}
+
+buckybase.get_blob_data = function(blob) {
+    return buckybase.assert_type(blob, buckybase.Blob).data;
+}
+
+buckybase.blob_size = function(blob) {
+    return buckybase.assert_type(blob, buckybase.Blob).data.length;
+}
+
+// Tree
+
+buckybase.Tree = function Tree() {
+    this.entries = Object.create(null);
+}
+
+buckybase.make_tree = function() {
+    return new buckybase.Tree();
+}
+
+buckybase.tree_put = function(tree, name, entry) {
+    buckybase.assert_type(tree, buckybase.Tree);
+    buckybase.assert_type(name, buckybase.UTF8);
+    buckybase.assert_type(entry, buckybase.TreeEntry);
+    var utf8_string = buckybase.get_utf8_string(name);
+    buckybase.assert(utf8_string.indexOf("\0") === -1);
+    tree.entries[utf8_string] = entry;
+}
+
+buckybase.tree_get = function(tree, name) {
+    buckybase.assert_type(tree, buckybase.Tree);
+    buckybase.assert_type(name, buckybase.UTF8);
+    return tree.entries[buckybase.get_utf8_string(name)];
+}
+
+buckybase.tree_names = function(tree) {
+    buckybase.assert_type(tree, buckybase.Tree);
+    return Object.keys(tree.entries).sort().map(buckybase.internal_make_utf8);
+}
+
+// Tree Entry
+
+buckybase.TreeEntry = function TreeEntry(hash, type) {
     this.hash = buckybase.assert_type(hash, buckybase.Hash);
     this.type = buckybase.assert_tree_entry_type(type);
 }
 
 buckybase.make_tree_entry = function(hash, type) {
     return new buckybase.TreeEntry(hash, type);
-}
-
-buckybase.assert_tree_entry_type = function(type) {
-    buckybase.assert((type === buckybase.TREE_TYPE) || (type === buckybase.BLOB_TYPE));
-    return type;
 }
 
 buckybase.get_tree_entry_hash = function(entry) {
@@ -66,51 +83,73 @@ buckybase.get_tree_entry_type = function(entry) {
     return buckybase.assert_type(entry, buckybase.TreeEntry).type;
 }
 
-buckybase.make_blob = function(data) {
-    return new buckybase.Blob(data);
+buckybase.assert_tree_entry_type = function(type) {
+    buckybase.assert((type === buckybase.TREE_TYPE) || (type === buckybase.BLOB_TYPE));
+    return type;
 }
 
-buckybase.blob_size = function(blob) {
-    return buckybase.get_blob_data(blob).length;
+buckybase.tree_entry_mode = function(entry) {
+    return buckybase.mode_from_type(buckybase.get_tree_entry_type(entry));
 }
 
-buckybase.get_blob_data = function(blob) {
-    return buckybase.assert_type(blob, buckybase.Blob).data;
+buckybase.mode_from_type = function(type) {
+    buckybase.assert_string(type);
+    switch(type) {
+    case buckybase.BLOB_TYPE: return buckybase.BLOB_MODE;
+    case buckybase.TREE_TYPE: return buckybase.TREE_MODE;
+    default: buckybase.error("Unknown type: " + type);
+    }
 }
 
-buckybase.make_tree = function() {
-    return new buckybase.Tree();
+buckybase.type_from_mode = function(mode) {
+    buckybase.assert_string(mode);
+    switch(mode) {
+    case buckybase.BLOB_MODE: return buckybase.BLOB_TYPE;
+    case buckybase.TREE_MODE: return buckybase.TREE_TYPE;
+    default: buckybase.error("Unknown mode: " + mode);
+    }
 }
 
-buckybase.tree_put = function(tree, name, entry) {
-    buckybase.assert_type(tree, buckybase.Tree);
-    buckybase.assert_type(entry, buckybase.TreeEntry);
-    var utf8_string = buckybase.get_utf8_string(name);
-    buckybase.assert(utf8_string.indexOf("\0") === -1);
-    tree.entries[utf8_string] = entry;
+// Commit
+
+buckybase.Commit = function Commit(tree_hash, parent_hashes, author, committer, message) {
+    this.tree_hash = buckybase.assert_type(tree_hash, buckybase.Hash);
+    this.parent_hashes = buckybase.assert_array_type(parent_hashes, buckybase.Hash);
+    this.author = buckybase.assert_type(author, buckybase.Committer);
+    this.committer = buckybase.assert_type(committer, buckybase.Committer);
+    this.message = buckybase.assert_type(message, buckybase.UTF8);
 }
 
-buckybase.tree_get = function(tree, name) {
-    return buckybase.assert_type(tree.entries[buckybase.get_utf8_string(name)], buckybase.TreeEntry);
+buckybase.Committer = function Committer(name, email, timestamp, timezone) {
+    this.name = buckybase.assert_type(name, buckybase.UTF8);
+    this.email = buckybase.assert_type(email, buckybase.UTF8);
+    this.timestamp = buckybase.assert_number(timestamp);
+    this.timezone = buckybase.assert_type(timezone, buckybase.UTF8);
 }
 
-buckybase.tree_names = function(tree) {
-    buckybase.assert_type(tree, buckybase.Tree);
-    return Object.keys(tree.entries).sort().map(buckybase.internal_make_utf8);
+buckybase.make_commit = function(tree_hash, parent_hashes, author, committer, message) {
+    return new buckybase.Commit(tree_hash, parent_hashes, author, committer, message);
 }
 
-// Git format writing
+buckybase.make_committer = function(name, email, timestamp, timezone) {
+    return new buckybase.Committer(name, email, timestamp, timezone);
+}
 
-buckybase.TREE_MODE = "40000";
-buckybase.BLOB_MODE = "100644";
+//// Git Format
 
-buckybase.GitData = function(hash, data) {
+/// Writing
+
+buckybase.GitData = function GitData(hash, data) {
     this.hash = buckybase.assert_type(hash, buckybase.Hash);
     this.data = buckybase.assert_type(data, Uint8Array);
 }
 
 buckybase.make_git_data = function(hash, data) {
     return new buckybase.GitData(hash, data);
+}
+
+buckybase.object_to_git_data = function(obj) {
+    return obj.object_to_git_data();
 }
 
 buckybase.Blob.prototype.object_to_git_data = function() {
@@ -125,11 +164,8 @@ buckybase.Commit.prototype.object_to_git_data = function() {
     return buckybase.commit_to_git_data(this);
 }
 
-buckybase.object_to_git_data = function(obj) {
-    return obj.object_to_git_data();
-}
-
 buckybase.blob_to_git_data = function(blob) {
+    buckybase.assert_type(blob, buckybase.Blob);
     var prefix = buckybase.utf8_encode(buckybase.BLOB_TYPE + " " + buckybase.blob_size(blob) + "\0");
     var prefix_array = buckybase.utf8_to_uint8array(prefix);
     var array = buckybase.append_uint8arrays(prefix_array, buckybase.get_blob_data(blob));
@@ -138,6 +174,7 @@ buckybase.blob_to_git_data = function(blob) {
 }
 
 buckybase.tree_to_git_data = function(tree) {
+    buckybase.assert_type(tree, buckybase.Tree);
     var data = new Uint8Array(0);
     buckybase.tree_names(tree).forEach(function(name) {
         var entry = buckybase.tree_get(tree, name);
@@ -159,33 +196,6 @@ buckybase.tree_entry_to_git_uint8array = function(name, entry) {
     var hash_array = buckybase.get_hash_array(buckybase.get_tree_entry_hash(entry));
     return buckybase.append_uint8arrays(prefix_array, hash_array);
 }
-
-buckybase.tree_entry_mode = function(entry) {
-    return buckybase.mode_from_type(buckybase.get_tree_entry_type(entry));
-}
-
-buckybase.mode_from_type = function(type) {
-    buckybase.assert_string(type);
-    switch(type) {
-    case buckybase.BLOB_TYPE: return buckybase.BLOB_MODE;
-    case buckybase.TREE_TYPE: return buckybase.TREE_MODE;
-    default: buckybase.error("Unknown type: " + entry);
-    }
-}
-
-buckybase.type_from_mode = function(mode) {
-    buckybase.assert_string(mode);
-    switch(mode) {
-    case buckybase.BLOB_MODE: return buckybase.BLOB_TYPE;
-    case buckybase.TREE_MODE: return buckybase.TREE_TYPE;
-    default: buckybase.error("Unknown mode: " + mode);
-    }
-}
-
-buckybase.COMMIT_TREE = "tree";
-buckybase.COMMIT_PARENT = "parent";
-buckybase.COMMIT_AUTHOR = "author";
-buckybase.COMMIT_COMMITTER = "committer";
 
 buckybase.commit_to_git_data = function(commit) {
     buckybase.assert_type(commit, buckybase.Commit);
@@ -210,7 +220,14 @@ buckybase.commit_to_git_data = function(commit) {
     return buckybase.make_git_data(hash, array);
 }
 
-// Git format reading
+buckybase.Committer.prototype.toString = function() {
+    return buckybase.get_utf8_string(this.name) + 
+        " <" + buckybase.get_utf8_string(this.email) + "> "
+        + this.timestamp + " " 
+        + buckybase.get_utf8_string(this.timezone);
+}
+
+/// Reading
 
 buckybase.object_from_git_uint8array = function(bin) {
     buckybase.assert_type(bin, Uint8Array);
@@ -259,8 +276,6 @@ buckybase.add_tree_entry_from_git_uint8array = function(tree, bin) {
         buckybase.error("Tree entry doesn't have NUL byte, probably ill-formatted Git data: " + bin);
     }
     var prefix = buckybase.string_from_uint8array(bin.subarray(0, ix));
-    var hash_off = ix + 1;
-    var total_len = hash_off + buckybase.HASH_LENGTH;
     var mode_and_name = prefix.split(" ");
     if (mode_and_name.length !== 2) {
         buckybase.error("Tree entry prefix doesn't consist of name and mode: " + prefix);
@@ -268,6 +283,8 @@ buckybase.add_tree_entry_from_git_uint8array = function(tree, bin) {
     var mode = mode_and_name[0];
     var name = mode_and_name[1];
     var type = buckybase.type_from_mode(mode);
+    var hash_off = ix + 1;
+    var total_len = hash_off + buckybase.HASH_LENGTH;
     var hash = buckybase.make_hash(bin.subarray(hash_off, total_len));
     buckybase.tree_put(tree, buckybase.utf8_encode(name), buckybase.make_tree_entry(hash, type));
     return total_len;
@@ -276,7 +293,7 @@ buckybase.add_tree_entry_from_git_uint8array = function(tree, bin) {
 buckybase.commit_from_git_uint8array = function(bin) {
     buckybase.assert_type(bin, Uint8Array);
     var tree_hash, parent_hashes = [], author, committer, message;
-    var ops = {};
+    var ops = Object.create(null);
     ops[buckybase.COMMIT_TREE] = function(s) {
         tree_hash = buckybase.make_hash(buckybase.hex_string_to_uint8array(s));
     };
@@ -322,22 +339,11 @@ buckybase.committer_from_string = function(s) {
     return buckybase.make_committer(name, email, timestamp, timezone);
 }
 
-buckybase.binary_index_of = function(bin, byte) {
-    buckybase.assert_type(bin, Uint8Array);
-    buckybase.assert_number(byte);
-    for (var i = 0; i < bin.length; i++) {
-        if (bin[i] === byte) {
-            return i;
-        }
-    }
-    return -1;
-}
-
 // SHA-1
 
 buckybase.HASH_LENGTH = 20;
 
-buckybase.Hash = function(uint8array) {
+buckybase.Hash = function Hash(uint8array) {
     this.array = buckybase.assert_type(uint8array, Uint8Array);
     buckybase.assert(uint8array.length === buckybase.HASH_LENGTH);
 }
@@ -381,7 +387,7 @@ buckybase.Hash.prototype.toString = function() {
 
 // UTF8 encoding / decoding
 
-buckybase.UTF8 = function(utf8_string) {
+buckybase.UTF8 = function UTF8(utf8_string) {
     this.utf8_string = buckybase.assert_string(utf8_string);
 }
 
@@ -390,7 +396,8 @@ buckybase.internal_make_utf8 = function(utf8_string) {
 }
 
 buckybase.utf8_encode = function(js_string) {
-    return buckybase.internal_make_utf8(unescape(encodeURIComponent(buckybase.assert_string(js_string))));
+    buckybase.assert_string(js_string);
+    return buckybase.internal_make_utf8(unescape(encodeURIComponent(js_string)));
 }
 
 buckybase.utf8_decode = function(utf8) {
@@ -420,7 +427,7 @@ buckybase.string_from_uint8array = function(uint8array) {
     return TextDecoder("utf-8").decode(uint8array);
 }
 
-// Array utilities
+// Binary utilities
 
 buckybase.append_uint8arrays = function(a, b) {
     buckybase.assert_type(a, Uint8Array);
@@ -429,6 +436,17 @@ buckybase.append_uint8arrays = function(a, b) {
     c.set(a);
     c.set(b, a.length);
     return c;
+}
+
+buckybase.binary_index_of = function(bin, byte) {
+    buckybase.assert_type(bin, Uint8Array);
+    buckybase.assert_number(byte);
+    for (var i = 0; i < bin.length; i++) {
+        if (bin[i] === byte) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 // Sanity checking utilities
@@ -476,7 +494,7 @@ buckybase.assert_number = function(n) {
 
 // Errors
 
-buckybase.Error = function(msg) {
+buckybase.Error = function Error(msg) {
     this.msg = msg;
 }
 
