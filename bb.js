@@ -358,21 +358,21 @@ buckybase.sha1 = function(uint8array) {
 buckybase.hex_string_to_uint8array = function(str) {
     buckybase.assert_string(str);
     buckybase.assert((str.length % 2) === 0);
-	var array = new Uint8Array(str.length / 2);
+    var array = new Uint8Array(str.length / 2);
     var i = 0;
-	str.replace(/(..)/g, function(doublette) {
-		array[i++] = parseInt(doublette, 16);
-	});
-	return array;
+    str.replace(/(..)/g, function(doublette) {
+        array[i++] = parseInt(doublette, 16);
+    });
+    return array;
 }
 
 buckybase.uint8array_to_hex_string = function(uint8array) {
     buckybase.assert_type(uint8array, Uint8Array);
-  	var ret = "";
-  	for (var i = 0; i < uint8array.length; i++) {
-    	ret += (uint8array[i] < 16 ? "0" : "") + uint8array[i].toString(16);
+    var ret = "";
+    for (var i = 0; i < uint8array.length; i++) {
+        ret += (uint8array[i] < 16 ? "0" : "") + uint8array[i].toString(16);
     }
-  	return ret;
+    return ret;
 }
 
 buckybase.Hash.prototype.toString = function() {
