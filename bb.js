@@ -143,6 +143,22 @@ buckybase.make_committer = function(name, email, timestamp, timezone) {
     return new buckybase.Committer(name, email, timestamp, timezone);
 }
 
+buckybase.Commit.prototype.toString = function() {
+    return buckybase.COMMIT_TREE + " " + this.tree_hash.toString() + "\n"
+        + this.parent_hashes.map(function(ph) { return buckybase.COMMIT_PARENT + " " + ph.toString() }).join("\n")
+        + buckybase.COMMIT_AUTHOR + " " + this.author.toString() + "\n"
+        + buckybase.COMMIT_COMMITTER + " " + this.committer.toString() + "\n"
+        + "\n"
+        + buckybase.get_utf8_string(this.message);
+}
+
+buckybase.Committer.prototype.toString = function() {
+    return buckybase.get_utf8_string(this.name) + 
+        " <" + buckybase.get_utf8_string(this.email) + "> "
+        + this.timestamp + " " 
+        + buckybase.get_utf8_string(this.timezone);
+}
+
 //// Git Format
 
 /// Writing
@@ -226,13 +242,6 @@ buckybase.commit_to_git_data = function(commit) {
     var array = buckybase.append_uint8arrays(prefix_array, data);
     var hash = buckybase.sha1(array);
     return buckybase.make_git_data(hash, array);
-}
-
-buckybase.Committer.prototype.toString = function() {
-    return buckybase.get_utf8_string(this.name) + 
-        " <" + buckybase.get_utf8_string(this.email) + "> "
-        + this.timestamp + " " 
-        + buckybase.get_utf8_string(this.timezone);
 }
 
 /// Reading
@@ -433,6 +442,25 @@ buckybase.utf8_from_uint8array = function(uint8array) {
 buckybase.string_from_uint8array = function(uint8array) {
     buckybase.assert_type(uint8array, Uint8Array);
     return TextDecoder("utf-8").decode(uint8array);
+}
+
+// UTC
+
+buckybase.utc_timestamp = function() {
+    // BUG: broken
+    var now = new Date(); 
+    var now_utc = new Date(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        now.getUTCHours(),
+        now.getUTCMinutes(),
+        now.getUTCSeconds());
+    return Math.round(now_utc.getTime() / 1000);
+}
+
+buckybase.utc_offset = function() {
+    return buckybase.utf8_encode("+0000");
 }
 
 // Binary utilities
