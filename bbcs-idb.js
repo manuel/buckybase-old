@@ -1,8 +1,20 @@
 ///// Buckybase Content Store IndexedDB Repository
 
-bbcs.MASTER = bbutil.utf8_encode("refs/heads/master");
-
 //// Repository Interface
+
+bbcs.Ref = function Ref(label) {
+    this.label = bbutil.assert_type(label, bbutil.UTF8);
+}
+
+bbcs.make_ref = function(label) {
+    return new bbcs.Ref(label);
+}
+
+bbcs.Ref.prototype.toString = function() {
+    return bbutil.get_utf8_string(this.label);
+}
+
+bbcs.MASTER = bbcs.make_ref(bbutil.utf8_encode("refs/heads/master"));
 
 bbcs.Repo = function Repo() {
 }
@@ -14,11 +26,35 @@ bbcs.init_repo = function(success, failure, repo) {
 
 bbcs.repo_get_ref = function(success, failure, repo, ref) {
     bbutil.assert_type(repo, bbcs.Repo);
-    bbutil.assert_type(ref, bbutil.UTF8);
+    bbutil.assert_type(ref, bbcs.Ref);
     return repo.repo_get_ref(success, failure, repo, ref);
 }
 
+bbcs.repo_put_ref = function(success, failure, repo, ref, hash) {
+    bbutil.assert_type(repo, bbcs.Repo);
+    bbutil.assert_type(ref, bbcs.Ref);
+    bbutil.assert_type(hash, bbcs.Hash);
+    return repo.repo_put_ref(success, failure, repo, ref, hash);
+}
+
+bbcs.repo_get_object = function(success, failure, repo, hash) {
+    bbutil.assert_type(repo, bbcs.Repo);
+    bbutil.assert_type(hash, bbcs.Hash);
+    return repo.repo_get_object(success, failure, repo, hash);
+}
+
+bbcs.repo_put_object = function(success, failure, repo, hash, uint8array) {
+    bbutil.assert_type(repo, bbcs.Repo);
+    bbutil.assert_type(hash, bbcs.Hash);
+    bbutil.assert_type(uint8array, Uint8Array);
+    return repo.repo_put_object(success, failure, repo, hash, uint8array);
+}
+
 //// IndexedDB Repo Implementation
+
+// For an object, the key is a string "obj:" + hex_hash, and the data is a Uint8Array.
+//
+// For a ref, the key is a string "ref:" + ref_name, and the data is a hex string hash.
 
 bbcs.IDBRepo = function IDBRepo(name) {
     this.name = bbutil.assert_type(name, bbutil.UTF8);
@@ -44,13 +80,51 @@ bbcs.IDBRepo.prototype.init_repo = function(success, failure, repo) {
 }
 
 bbcs.IDBRepo.prototype.repo_get_ref = function(success, failure, repo, ref) {
-    var key = bbcs.ref_idb_key_string(ref);
-    repo.store.get(key, success, failure);
+    var key = bbcs.idb_ref_key_string(ref);
+    repo.store.get(
+        key,
+        function(hex) {
+            if (bbutil.is_string(hex)) {
+                success(bbcs.make_hash(bbutil.hex_string_to_uint8array(hex)));
+            } else {
+                success(null);
+            }
+        },
+        failure
+    );
+}
+
+bbcs.IDBRepo.prototype.repo_put_ref = function(success, failure, repo, ref, hash) {
+    var key = bbcs.idb_ref_key_string(ref);
+    var value = bbutil.uint8array_to_hex_string(bbcs.get_hash_array(hash));
+    repo.store.put(key, value, bbcs.idb_transform_success_callback(success), failure);
+}
+
+bbcs.IDBRepo.prototype.repo_get_object = function(success, failure, repo, hash) {
+    var key = bbcs.idb_object_key_string(hash);
+    repo.store.get(key, bbcs.idb_transform_success_callback(success), failure);
+}
+
+bbcs.IDBRepo.prototype.repo_put_object = function(success, failure, repo, hash, uint8array) {
+    var key = bbcs.idb_object_key_string(hash);
+    var value = bbutil.assert_type(uint8array, Uint8Array);
+    repo.store.put(key, value, bbcs.idb_transform_success_callback(success), failure);
 }
 
 /// Utilities
 
-bbcs.ref_idb_key_string = function(ref) {
-    bbutil.assert_type(ref, bbutil.UTF8);
-    return "ref:" + bbutil.get_utf8_string(ref);
+bbcs.idb_transform_success_callback = function(success) {
+    return function(result) {
+        success(result === undefined ? null : result);
+    }
+}
+
+bbcs.idb_ref_key_string = function(ref) {
+    bbutil.assert_type(ref, bbcs.Ref);
+    return "ref:" + bbutil.get_utf8_string(ref.label);
+}
+
+bbcs.idb_object_key_string = function(hash) {
+    bbutil.assert_type(hash, bbcs.Hash);
+    return "obj:" + bbutil.uint8array_to_hex_string(bbcs.get_hash_array(hash));
 }

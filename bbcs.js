@@ -16,11 +16,16 @@ bbcs.COMMIT_PARENT = "parent";
 bbcs.COMMIT_AUTHOR = "author";
 bbcs.COMMIT_COMMITTER = "committer";
 
+bbcs.Object = function Object() {
+}
+
 /// Blob
 
 bbcs.Blob = function Blob(data) {
     this.data = bbutil.assert_type(data, Uint8Array);
 }
+
+bbcs.Blob.prototype = new bbcs.Object();
 
 bbcs.make_blob = function(data) {
     return new bbcs.Blob(data);
@@ -39,6 +44,8 @@ bbcs.blob_size = function(blob) {
 bbcs.Tree = function Tree() {
     this.entries = Object.create(null);
 }
+
+bbcs.Tree.prototype = new bbcs.Object();
 
 bbcs.make_tree = function() {
     return new bbcs.Tree();
@@ -128,6 +135,8 @@ bbcs.Commit = function Commit(tree_hash, parent_hashes, author, committer, messa
     this.message = bbutil.assert_type(message, bbutil.UTF8);
 }
 
+bbcs.Commit.prototype = new bbcs.Object();
+
 bbcs.Committer = function Committer(name, email, timestamp, timezone) {
     this.name = bbutil.assert_type(name, bbutil.UTF8);
     this.email = bbutil.assert_type(email, bbutil.UTF8);
@@ -172,7 +181,16 @@ bbcs.make_git_data = function(hash, data) {
     return new bbcs.GitData(hash, data);
 }
 
+bbcs.get_git_data_hash = function(data) {
+    return bbutil.assert_type(data, bbcs.GitData).hash;
+}
+
+bbcs.get_git_data_uint8array = function(data) {
+    return bbutil.assert_type(data, bbcs.GitData).data;
+}
+
 bbcs.object_to_git_data = function(obj) {
+    bbutil.assert_type(obj, bbcs.Object);
     return obj.object_to_git_data();
 }
 
