@@ -1,8 +1,8 @@
-///// Buckybase Content Store
+///// Buckybase Content Store Data Model and Git Format
 
 var bbcs = Object.create(null);
 
-//// Content-addressed store
+//// Data Model
 
 bbcs.TREE_TYPE = "tree";
 bbcs.BLOB_TYPE = "blob";
@@ -16,9 +16,7 @@ bbcs.COMMIT_PARENT = "parent";
 bbcs.COMMIT_AUTHOR = "author";
 bbcs.COMMIT_COMMITTER = "committer";
 
-/// Data model
-
-// Blob
+/// Blob
 
 bbcs.Blob = function Blob(data) {
     this.data = bbutil.assert_type(data, Uint8Array);
@@ -36,7 +34,7 @@ bbcs.blob_size = function(blob) {
     return bbutil.assert_type(blob, bbcs.Blob).data.length;
 }
 
-// Tree
+/// Tree
 
 bbcs.Tree = function Tree() {
     this.entries = Object.create(null);
@@ -66,7 +64,7 @@ bbcs.tree_names = function(tree) {
     return Object.keys(tree.entries).sort().map(bbutil.internal_make_utf8);
 }
 
-// Tree Entry
+/// Tree Entry
 
 bbcs.TreeEntry = function TreeEntry(hash, type) {
     this.hash = bbutil.assert_type(hash, bbcs.Hash);
@@ -120,7 +118,7 @@ bbcs.type_from_mode = function(mode) {
     }
 }
 
-// Commit
+/// Commit
 
 bbcs.Commit = function Commit(tree_hash, parent_hashes, author, committer, message) {
     this.tree_hash = bbutil.assert_type(tree_hash, bbcs.Hash);
@@ -358,7 +356,7 @@ bbcs.committer_from_string = function(s) {
     return bbcs.make_committer(name, email, timestamp, timezone);
 }
 
-// SHA-1
+/// SHA-1
 
 bbcs.HASH_LENGTH = 20;
 
@@ -384,7 +382,7 @@ bbcs.Hash.prototype.toString = function() {
     return bbutil.uint8array_to_hex_string(this.array);
 }
 
-// UTC
+/// UTC
 
 bbcs.utc_timestamp = function() {
     // BUG: broken

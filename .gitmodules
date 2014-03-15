@@ -1,0 +1,3 @@
+[submodule "wat-js"]
+	path = wat-js
+	url = git@github.com:manuel/wat-js.git

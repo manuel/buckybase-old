@@ -75,3 +75,4 @@ var commit_hash = bbcs.object_to_git_data(commit).hash;
 assert_equals("fbcd28e4ad1eb56bfb2837764d245ebd9727517f", commit_hash.toString());
 assert_equals(bbutil.string_from_uint8array(commit_git_data.data),
               bbutil.string_from_uint8array(bbcs.object_to_git_data(bbcs.object_from_git_uint8array(bbcs.object_to_git_data(commit).data)).data));
+
