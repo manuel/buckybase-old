@@ -37,17 +37,32 @@ bbcs.repo_put_ref = function(success, failure, repo, ref, hash) {
     return repo.repo_put_ref(success, failure, repo, ref, hash);
 }
 
-bbcs.repo_get_object = function(success, failure, repo, hash) {
+bbcs.repo_get_object_uint8array = function(success, failure, repo, hash) {
     bbutil.assert_type(repo, bbcs.Repo);
     bbutil.assert_type(hash, bbcs.Hash);
-    return repo.repo_get_object(success, failure, repo, hash);
+    return repo.repo_get_object_uint8array(success, failure, repo, hash);
 }
 
-bbcs.repo_put_object = function(success, failure, repo, hash, uint8array) {
+bbcs.repo_put_object_uint8array = function(success, failure, repo, hash, uint8array) {
     bbutil.assert_type(repo, bbcs.Repo);
     bbutil.assert_type(hash, bbcs.Hash);
     bbutil.assert_type(uint8array, Uint8Array);
-    return repo.repo_put_object(success, failure, repo, hash, uint8array);
+    return repo.repo_put_object_uint8array(success, failure, repo, hash, uint8array);
+}
+
+bbcs.repo_get_object = function(success, failure, repo, hash) {
+    bbcs.repo_get_object_uint8array(
+        function(uint8array) {
+            if (uint8array instanceof Uint8Array) {
+                success(bbcs.object_from_git_uint8array(uint8array));
+            } else {
+                success(null);
+            }
+        },
+        failure,
+        repo,
+        hash
+    );
 }
 
 //// IndexedDB Repo Implementation
@@ -100,12 +115,12 @@ bbcs.IDBRepo.prototype.repo_put_ref = function(success, failure, repo, ref, hash
     repo.store.put(key, value, bbcs.idb_transform_success_callback(success), failure);
 }
 
-bbcs.IDBRepo.prototype.repo_get_object = function(success, failure, repo, hash) {
+bbcs.IDBRepo.prototype.repo_get_object_uint8array = function(success, failure, repo, hash) {
     var key = bbcs.idb_object_key_string(hash);
     repo.store.get(key, bbcs.idb_transform_success_callback(success), failure);
 }
 
-bbcs.IDBRepo.prototype.repo_put_object = function(success, failure, repo, hash, uint8array) {
+bbcs.IDBRepo.prototype.repo_put_object_uint8array = function(success, failure, repo, hash, uint8array) {
     var key = bbcs.idb_object_key_string(hash);
     var value = bbutil.assert_type(uint8array, Uint8Array);
     repo.store.put(key, value, bbcs.idb_transform_success_callback(success), failure);
