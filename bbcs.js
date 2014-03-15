@@ -21,22 +21,22 @@ bbcs.Object = function Object() {
 
 /// Blob
 
-bbcs.Blob = function Blob(data) {
-    this.data = bbutil.assert_type(data, Uint8Array);
+bbcs.Blob = function Blob(binary) {
+    this.binary = bbutil.assert_type(binary, Uint8Array);
 }
 
 bbcs.Blob.prototype = new bbcs.Object();
 
-bbcs.make_blob = function(data) {
-    return new bbcs.Blob(data);
+bbcs.make_blob = function(binary) {
+    return new bbcs.Blob(binary);
 }
 
-bbcs.get_blob_data = function(blob) {
-    return bbutil.assert_type(blob, bbcs.Blob).data;
+bbcs.get_blob_binary = function(blob) {
+    return bbutil.assert_type(blob, bbcs.Blob).binary;
 }
 
 bbcs.blob_size = function(blob) {
-    return bbutil.assert_type(blob, bbcs.Blob).data.length;
+    return bbutil.assert_type(blob, bbcs.Blob).binary.length;
 }
 
 /// Tree
@@ -172,21 +172,21 @@ bbcs.Committer.prototype.toString = function() {
 
 /// Writing
 
-bbcs.GitData = function GitData(hash, data) {
+bbcs.GitData = function GitData(hash, binary) {
     this.hash = bbutil.assert_type(hash, bbcs.Hash);
-    this.data = bbutil.assert_type(data, Uint8Array);
+    this.binary = bbutil.assert_type(binary, Uint8Array);
 }
 
-bbcs.make_git_data = function(hash, data) {
-    return new bbcs.GitData(hash, data);
+bbcs.make_git_data = function(hash, binary) {
+    return new bbcs.GitData(hash, binary);
 }
 
 bbcs.get_git_data_hash = function(data) {
     return bbutil.assert_type(data, bbcs.GitData).hash;
 }
 
-bbcs.get_git_data_uint8array = function(data) {
-    return bbutil.assert_type(data, bbcs.GitData).data;
+bbcs.get_git_data_binary = function(data) {
+    return bbutil.assert_type(data, bbcs.GitData).binary;
 }
 
 bbcs.object_to_git_data = function(obj) {
@@ -209,41 +209,41 @@ bbcs.Commit.prototype.object_to_git_data = function() {
 bbcs.blob_to_git_data = function(blob) {
     bbutil.assert_type(blob, bbcs.Blob);
     var prefix = bbutil.utf8_encode(bbcs.BLOB_TYPE + " " + bbcs.blob_size(blob) + "\0");
-    var prefix_array = bbutil.utf8_to_uint8array(prefix);
-    var array = bbutil.append_uint8arrays(prefix_array, bbcs.get_blob_data(blob));
+    var prefix_array = bbutil.utf8_to_binary(prefix);
+    var array = bbutil.append_binaries(prefix_array, bbcs.get_blob_binary(blob));
     var hash = bbcs.sha1(array);
     return bbcs.make_git_data(hash, array);
 }
 
 bbcs.tree_to_git_data = function(tree) {
     bbutil.assert_type(tree, bbcs.Tree);
-    var data = new Uint8Array(0);
+    var binary = new Uint8Array(0);
     bbcs.tree_names(tree).forEach(function(name) {
         var entry = bbcs.tree_get(tree, name);
-        data = bbutil.append_uint8arrays(data, bbcs.tree_entry_to_git_uint8array(name, entry));
+        binary = bbutil.append_binaries(binary, bbcs.tree_entry_to_git_binary(name, entry));
     });
-    var prefix = bbutil.utf8_encode(bbcs.TREE_TYPE + " " + data.length + "\0");
-    var prefix_array = bbutil.utf8_to_uint8array(prefix);
-    var array = bbutil.append_uint8arrays(prefix_array, data);
+    var prefix = bbutil.utf8_encode(bbcs.TREE_TYPE + " " + binary.length + "\0");
+    var prefix_array = bbutil.utf8_to_binary(prefix);
+    var array = bbutil.append_binaries(prefix_array, binary);
     var hash = bbcs.sha1(array);
     return bbcs.make_git_data(hash, array);
 }
 
-bbcs.tree_entry_to_git_uint8array = function(name, entry) {
+bbcs.tree_entry_to_git_binary = function(name, entry) {
     bbutil.assert_type(name, bbutil.UTF8);
     bbutil.assert_type(entry, bbcs.TreeEntry);
     var mode = bbcs.tree_entry_mode(entry);
     var prefix = bbutil.utf8_encode(mode + " " + bbutil.get_utf8_string(name) + "\0");
-    var prefix_array = bbutil.utf8_to_uint8array(prefix);
+    var prefix_array = bbutil.utf8_to_binary(prefix);
     var hash_array = bbcs.get_hash_array(bbcs.get_tree_entry_hash(entry));
-    return bbutil.append_uint8arrays(prefix_array, hash_array);
+    return bbutil.append_binaries(prefix_array, hash_array);
 }
 
 bbcs.commit_to_git_data = function(commit) {
     bbutil.assert_type(commit, bbcs.Commit);
-    var data = new Uint8Array(0);
+    var binary = new Uint8Array(0);
     function add_utf8(s) {
-        data = bbutil.append_uint8arrays(data, bbutil.utf8_to_uint8array(s));
+        binary = bbutil.append_binaries(binary, bbutil.utf8_to_binary(s));
     }
 
     add_utf8(bbutil.utf8_encode(bbcs.COMMIT_TREE + " " + commit.tree_hash.toString() + "\n"));
@@ -255,22 +255,22 @@ bbcs.commit_to_git_data = function(commit) {
     add_utf8(bbutil.utf8_encode("\n"));
     add_utf8(commit.message);
 
-    var prefix = bbutil.utf8_encode(bbcs.COMMIT_TYPE + " " + data.length + "\0");
-    var prefix_array = bbutil.utf8_to_uint8array(prefix);
-    var array = bbutil.append_uint8arrays(prefix_array, data);
+    var prefix = bbutil.utf8_encode(bbcs.COMMIT_TYPE + " " + binary.length + "\0");
+    var prefix_array = bbutil.utf8_to_binary(prefix);
+    var array = bbutil.append_binaries(prefix_array, binary);
     var hash = bbcs.sha1(array);
     return bbcs.make_git_data(hash, array);
 }
 
 /// Reading
 
-bbcs.object_from_git_uint8array = function(bin) {
+bbcs.object_from_git_binary = function(bin) {
     bbutil.assert_type(bin, Uint8Array);
     var ix = bbutil.binary_index_of(bin, 0);
     if (ix === -1) {
         bbutil.error("Doesn't contain NUL byte, probably ill-formatted Git data: " + bin);
     }
-    var prefix = bbutil.string_from_uint8array(bin.subarray(0, ix));
+    var prefix = bbutil.string_from_binary(bin.subarray(0, ix));
     var type_and_size = prefix.split(" ");
     if (type_and_size.length !== 2) {
         bbutil.error("Git data prefix doesn't consist of type and size: " + prefix);
@@ -278,39 +278,39 @@ bbcs.object_from_git_uint8array = function(bin) {
     var type = type_and_size[0];
     var size = bbutil.assert_number(parseInt(type_and_size[1]));
     bbutil.assert(!isNaN(size));
-    var data = bin.subarray(ix + 1);
-    bbutil.assert(data.length === size);
+    var binary = bin.subarray(ix + 1);
+    bbutil.assert(binary.length === size);
     switch(type) {
-    case bbcs.BLOB_TYPE: return bbcs.blob_from_git_uint8array(data);
-    case bbcs.TREE_TYPE: return bbcs.tree_from_git_uint8array(data);
-    case bbcs.COMMIT_TYPE: return bbcs.commit_from_git_uint8array(data);
+    case bbcs.BLOB_TYPE: return bbcs.blob_from_git_binary(binary);
+    case bbcs.TREE_TYPE: return bbcs.tree_from_git_binary(binary);
+    case bbcs.COMMIT_TYPE: return bbcs.commit_from_git_binary(binary);
     default: bbutil.error("Unknown object type: " + type);
     }
 }
 
-bbcs.blob_from_git_uint8array = function(bin) {
+bbcs.blob_from_git_binary = function(bin) {
     bbutil.assert_type(bin, Uint8Array);
     return bbcs.make_blob(bin);
 }
 
-bbcs.tree_from_git_uint8array = function(bin) {
+bbcs.tree_from_git_binary = function(bin) {
     bbutil.assert_type(bin, Uint8Array);
     var tree = bbcs.make_tree();
     var off = 0;
     while(off < bin.length) {
-        off += bbcs.add_tree_entry_from_git_uint8array(tree, bin.subarray(off));
+        off += bbcs.add_tree_entry_from_git_binary(tree, bin.subarray(off));
     }
     return tree;
 }
 
-bbcs.add_tree_entry_from_git_uint8array = function(tree, bin) {
+bbcs.add_tree_entry_from_git_binary = function(tree, bin) {
     bbutil.assert_type(tree, bbcs.Tree);
     bbutil.assert_type(bin, Uint8Array);
     var ix = bbutil.binary_index_of(bin, 0);
     if (ix === -1) {
         bbutil.error("Tree entry doesn't have NUL byte, probably ill-formatted Git data: " + bin);
     }
-    var prefix = bbutil.string_from_uint8array(bin.subarray(0, ix));
+    var prefix = bbutil.string_from_binary(bin.subarray(0, ix));
     var mode_and_name = prefix.split(" ");
     if (mode_and_name.length !== 2) {
         bbutil.error("Tree entry prefix doesn't consist of name and mode: " + prefix);
@@ -325,15 +325,15 @@ bbcs.add_tree_entry_from_git_uint8array = function(tree, bin) {
     return total_len;
 }
 
-bbcs.commit_from_git_uint8array = function(bin) {
+bbcs.commit_from_git_binary = function(bin) {
     bbutil.assert_type(bin, Uint8Array);
     var tree_hash, parent_hashes = [], author, committer, message;
     var ops = Object.create(null);
     ops[bbcs.COMMIT_TREE] = function(s) {
-        tree_hash = bbcs.make_hash(bbutil.hex_string_to_uint8array(s));
+        tree_hash = bbcs.make_hash(bbutil.hex_string_to_binary(s));
     };
     ops[bbcs.COMMIT_PARENT] = function(s) {
-        parent_hashes.push(bbcs.make_hash(bbutil.hex_string_to_uint8array(s)));
+        parent_hashes.push(bbcs.make_hash(bbutil.hex_string_to_binary(s)));
     };
     ops[bbcs.COMMIT_AUTHOR] = function(s) {
         author = bbcs.committer_from_string(s);
@@ -341,7 +341,7 @@ bbcs.commit_from_git_uint8array = function(bin) {
     ops[bbcs.COMMIT_COMMITTER] = function(s) {
         committer = bbcs.committer_from_string(s);
     };
-    var lines = bbutil.string_from_uint8array(bin).split("\n");
+    var lines = bbutil.string_from_binary(bin).split("\n");
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i];
         if (line === "") {
@@ -378,26 +378,26 @@ bbcs.committer_from_string = function(s) {
 
 bbcs.HASH_LENGTH = 20;
 
-bbcs.Hash = function Hash(uint8array) {
-    this.array = bbutil.assert_type(uint8array, Uint8Array);
-    bbutil.assert(uint8array.length === bbcs.HASH_LENGTH);
+bbcs.Hash = function Hash(binary) {
+    this.array = bbutil.assert_type(binary, Uint8Array);
+    bbutil.assert(binary.length === bbcs.HASH_LENGTH);
 }
 
-bbcs.make_hash = function(uint8array) {
-    return new bbcs.Hash(uint8array);
+bbcs.make_hash = function(binary) {
+    return new bbcs.Hash(binary);
 }
 
 bbcs.get_hash_array = function(hash) {
     return bbutil.assert_type(hash, bbcs.Hash).array;
 }
 
-bbcs.sha1 = function(uint8array) {
-    bbutil.assert_type(uint8array, Uint8Array);
-    return bbcs.make_hash(bbutil.hex_string_to_uint8array(sha1.hash(uint8array.buffer)));
+bbcs.sha1 = function(binary) {
+    bbutil.assert_type(binary, Uint8Array);
+    return bbcs.make_hash(bbutil.hex_string_to_binary(sha1.hash(binary.buffer)));
 }
 
 bbcs.Hash.prototype.toString = function() {
-    return bbutil.uint8array_to_hex_string(this.array);
+    return bbutil.binary_to_hex_string(this.array);
 }
 
 /// UTC

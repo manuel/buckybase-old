@@ -28,10 +28,8 @@ bbui.on_load = function() {
          ["define", "bbcs-init-repo", ["bbui-synchronize", ["js-wrap", bbcs.init_repo]]],
          ["define", "bbcs-repo-get-ref", ["bbui-synchronize", ["js-wrap", bbcs.repo_get_ref]]],
          ["define", "bbcs-repo-put-ref", ["bbui-synchronize", ["js-wrap", bbcs.repo_put_ref]]],
-         ["define", "bbcs-repo-get-object-uint8array",
-          ["bbui-synchronize", ["js-wrap", bbcs.repo_get_object_uint8array]]],
-         ["define", "bbcs-repo-put-object-uint8array",
-          ["bbui-synchronize", ["js-wrap", bbcs.repo_put_object_uint8array]]],
+         ["define", "bbcs-repo-get-object-binary", ["bbui-synchronize", ["js-wrap", bbcs.repo_get_object_binary]]],
+         ["define", "bbcs-repo-put-object-binary", ["bbui-synchronize", ["js-wrap", bbcs.repo_put_object_binary]]],
          ["define", "bbcs-repo-get-object", ["bbui-synchronize", ["js-wrap", bbcs.repo_get_object]]],
 
          ["define", "bbcs-make-tree", ["js-wrap", bbcs.make_tree]],
@@ -39,7 +37,7 @@ bbui.on_load = function() {
          ["define", "bbcs-make-commit", ["js-wrap", bbcs.make_commit]],
          ["define", "bbcs-object-to-git-data", ["js-wrap", bbcs.object_to_git_data]],
          ["define", "bbcs-get-git-data-hash", ["js-wrap", bbcs.get_git_data_hash]],
-         ["define", "bbcs-get-git-data-array", ["js-wrap", bbcs.get_git_data_uint8array]],
+         ["define", "bbcs-get-git-data-binary", ["js-wrap", bbcs.get_git_data_binary]],
          ["define", "bbcs-utc-timestamp", ["js-wrap", bbcs.utc_timestamp]],
          ["define", "bbcs-utc-offset", ["js-wrap", bbcs.utc_offset]],
 
@@ -67,8 +65,8 @@ bbui.on_load = function() {
                     ["commit", ["bbui-make-commit", "empty-tree-hash", ["array"]]],
                     ["commit-data", ["bbcs-object-to-git-data", "commit"]],
                     ["commit-hash", ["bbcs-get-git-data-hash", "commit-data"]]],
-           ["bbcs-repo-put-object-uint8array", "repo", "empty-tree-hash", ["bbcs-get-git-data-array", "empty-tree-data"]],
-           ["bbcs-repo-put-object-uint8array", "repo", "commit-hash", ["bbcs-get-git-data-array", "commit-data"]],
+           ["bbcs-repo-put-object-binary", "repo", "empty-tree-hash", ["bbcs-get-git-data-binary", "empty-tree-data"]],
+           ["bbcs-repo-put-object-binary", "repo", "commit-hash", ["bbcs-get-git-data-binary", "commit-data"]],
            ["bbcs-repo-put-ref", "repo", bbcs.MASTER, "commit-hash"],
            ["bbui-log", ["string", "Created master."]],
            "commit-hash"]],
@@ -81,8 +79,10 @@ bbui.on_load = function() {
 
          ["push-prompt", "*bbui-prompt*",
           ["let*", [["repo", ["bbcs-init-repo", bbui.repo]],
-                    ["master-hash", ["bbui-ensure-master", "repo"]]],
-           ["bbui-log", ["+", ["string", "Master: "], "master-hash"]]]]
+                    ["master-hash", ["bbui-ensure-master", "repo"]],
+                    ["commit", ["bbcs-repo-get-object", "repo", "master-hash"]]],
+           ["bbui-log", ["+", ["string", "Master: "], "master-hash"]],
+           ["bbui-log", ["#", "toString", "commit"]]]]
 
         ]
     );

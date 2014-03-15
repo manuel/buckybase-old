@@ -25,28 +25,28 @@ bbutil.get_utf8_string = function(utf8) {
     return bbutil.assert_type(utf8, bbutil.UTF8).utf8_string;
 }
 
-bbutil.utf8_to_uint8array = function(utf8) {
-    return bbutil.string_to_uint8array(bbutil.get_utf8_string(utf8));
+bbutil.utf8_to_binary = function(utf8) {
+    return bbutil.string_to_binary(bbutil.get_utf8_string(utf8));
 }
 
-bbutil.string_to_uint8array = function(str) {
+bbutil.string_to_binary = function(str) {
     bbutil.assert_string(str);
     return TextEncoder("utf-8").encode(str);
 }
 
-bbutil.utf8_from_uint8array = function(uint8array) {
-    bbutil.assert_type(uint8array, Uint8Array);
-    return bbutil.internal_make_utf8(bbutil.string_from_uint8array(uint8array));
+bbutil.utf8_from_binary = function(binary) {
+    bbutil.assert_type(binary, Uint8Array);
+    return bbutil.internal_make_utf8(bbutil.string_from_binary(binary));
 }
 
-bbutil.string_from_uint8array = function(uint8array) {
-    bbutil.assert_type(uint8array, Uint8Array);
-    return TextDecoder("utf-8").decode(uint8array);
+bbutil.string_from_binary = function(binary) {
+    bbutil.assert_type(binary, Uint8Array);
+    return TextDecoder("utf-8").decode(binary);
 }
 
 // Binary utilities
 
-bbutil.append_uint8arrays = function(a, b) {
+bbutil.append_binaries = function(a, b) {
     bbutil.assert_type(a, Uint8Array);
     bbutil.assert_type(b, Uint8Array);
     var c = new Uint8Array(a.length + b.length);
@@ -66,7 +66,7 @@ bbutil.binary_index_of = function(bin, byte) {
     return -1;
 }
 
-bbutil.hex_string_to_uint8array = function(str) {
+bbutil.hex_string_to_binary = function(str) {
     bbutil.assert_string(str);
     bbutil.assert((str.length % 2) === 0);
     var array = new Uint8Array(str.length / 2);
@@ -77,11 +77,11 @@ bbutil.hex_string_to_uint8array = function(str) {
     return array;
 }
 
-bbutil.uint8array_to_hex_string = function(uint8array) {
-    bbutil.assert_type(uint8array, Uint8Array);
+bbutil.binary_to_hex_string = function(binary) {
+    bbutil.assert_type(binary, Uint8Array);
     var ret = "";
-    for (var i = 0; i < uint8array.length; i++) {
-        ret += (uint8array[i] < 16 ? "0" : "") + uint8array[i].toString(16);
+    for (var i = 0; i < binary.length; i++) {
+        ret += (binary[i] < 16 ? "0" : "") + binary[i].toString(16);
     }
     return ret;
 }

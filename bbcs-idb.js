@@ -37,24 +37,24 @@ bbcs.repo_put_ref = function(success, failure, repo, ref, hash) {
     return repo.repo_put_ref(success, failure, repo, ref, hash);
 }
 
-bbcs.repo_get_object_uint8array = function(success, failure, repo, hash) {
+bbcs.repo_get_object_binary = function(success, failure, repo, hash) {
     bbutil.assert_type(repo, bbcs.Repo);
     bbutil.assert_type(hash, bbcs.Hash);
-    return repo.repo_get_object_uint8array(success, failure, repo, hash);
+    return repo.repo_get_object_binary(success, failure, repo, hash);
 }
 
-bbcs.repo_put_object_uint8array = function(success, failure, repo, hash, uint8array) {
+bbcs.repo_put_object_binary = function(success, failure, repo, hash, binary) {
     bbutil.assert_type(repo, bbcs.Repo);
     bbutil.assert_type(hash, bbcs.Hash);
-    bbutil.assert_type(uint8array, Uint8Array);
-    return repo.repo_put_object_uint8array(success, failure, repo, hash, uint8array);
+    bbutil.assert_type(binary, Uint8Array);
+    return repo.repo_put_object_binary(success, failure, repo, hash, binary);
 }
 
 bbcs.repo_get_object = function(success, failure, repo, hash) {
-    bbcs.repo_get_object_uint8array(
-        function(uint8array) {
-            if (uint8array instanceof Uint8Array) {
-                success(bbcs.object_from_git_uint8array(uint8array));
+    bbcs.repo_get_object_binary(
+        function(binary) {
+            if (binary instanceof Uint8Array) {
+                success(bbcs.object_from_git_binary(binary));
             } else {
                 success(null);
             }
@@ -100,7 +100,7 @@ bbcs.IDBRepo.prototype.repo_get_ref = function(success, failure, repo, ref) {
         key,
         function(hex) {
             if (bbutil.is_string(hex)) {
-                success(bbcs.make_hash(bbutil.hex_string_to_uint8array(hex)));
+                success(bbcs.make_hash(bbutil.hex_string_to_binary(hex)));
             } else {
                 success(null);
             }
@@ -111,18 +111,18 @@ bbcs.IDBRepo.prototype.repo_get_ref = function(success, failure, repo, ref) {
 
 bbcs.IDBRepo.prototype.repo_put_ref = function(success, failure, repo, ref, hash) {
     var key = bbcs.idb_ref_key_string(ref);
-    var value = bbutil.uint8array_to_hex_string(bbcs.get_hash_array(hash));
+    var value = bbutil.binary_to_hex_string(bbcs.get_hash_array(hash));
     repo.store.put(key, value, bbcs.idb_transform_success_callback(success), failure);
 }
 
-bbcs.IDBRepo.prototype.repo_get_object_uint8array = function(success, failure, repo, hash) {
+bbcs.IDBRepo.prototype.repo_get_object_binary = function(success, failure, repo, hash) {
     var key = bbcs.idb_object_key_string(hash);
     repo.store.get(key, bbcs.idb_transform_success_callback(success), failure);
 }
 
-bbcs.IDBRepo.prototype.repo_put_object_uint8array = function(success, failure, repo, hash, uint8array) {
+bbcs.IDBRepo.prototype.repo_put_object_binary = function(success, failure, repo, hash, binary) {
     var key = bbcs.idb_object_key_string(hash);
-    var value = bbutil.assert_type(uint8array, Uint8Array);
+    var value = bbutil.assert_type(binary, Uint8Array);
     repo.store.put(key, value, bbcs.idb_transform_success_callback(success), failure);
 }
 
@@ -141,5 +141,5 @@ bbcs.idb_ref_key_string = function(ref) {
 
 bbcs.idb_object_key_string = function(hash) {
     bbutil.assert_type(hash, bbcs.Hash);
-    return "obj:" + bbutil.uint8array_to_hex_string(bbcs.get_hash_array(hash));
+    return "obj:" + bbutil.binary_to_hex_string(bbcs.get_hash_array(hash));
 }
