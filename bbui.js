@@ -77,13 +77,26 @@ bbui.on_load = function() {
             ["bbui-init-master", "repo"],
             "master-hash"]]],
 
-         ["push-prompt", "*bbui-prompt*",
-          ["let*", [["repo", ["bbcs-init-repo", bbui.repo]],
-                    ["master-hash", ["bbui-ensure-master", "repo"]],
-                    ["commit", ["bbcs-repo-get-object", "repo", "master-hash"]]],
-           ["bbui-log", ["+", ["string", "Master: "], "master-hash"]],
-           ["bbui-log", ["#", "toString", "commit"]]]]
+         ["define", "*bbui-repository*", ["dnew"]],
+         ["define", ["bbui-repository"], ["dref", "*bbui-repository*"]]
 
         ]
+
+    );
+
+    bbui.run_wat(
+        ["let*", [["repo", ["bbcs-init-repo", ["bbui-repository"]]],
+                  ["master-hash", ["bbui-ensure-master", "repo"]],
+                  ["commit", ["bbcs-repo-get-object", "repo", "master-hash"]]],
+         ["bbui-log", ["+", ["string", "Master: "], "master-hash"]],
+         ["bbui-log", ["#", "toString", "commit"]]]
+    );
+}
+
+bbui.run_wat = function(code) {
+    bbui.vm.run(
+        ["push-prompt", "*bbui-prompt*",
+         ["dlet", "*bbui-repository*", bbui.repo,
+          code]]
     );
 }

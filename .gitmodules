@@ -1,3 +1,6 @@
 [submodule "wat-js"]
 	path = wat-js
 	url = git@github.com:manuel/wat-js.git
+[submodule "ftumbler"]
+	path = ftumbler
+	url = git@github.com:manuel/ftumbler.git
