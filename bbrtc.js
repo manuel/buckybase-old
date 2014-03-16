@@ -173,7 +173,7 @@ bbrtc.setup_remote_repo = function(repo) {
 bbrtc.remote_repo_handle_data = function(repo, data) {
     bbutil.assert(repo.requests.length > 0);
     var req = repo.requests[0];
-    repo.requests.unshift();
+    repo.requests = repo.requests.unshift();
     if (bbutil.is_string(data) && bbutil.string_starts_with(data, bbrtc.REF_PREFIX)) {
         req.success(bbcs.make_hash(bbutil.hex_string_to_binary(data.substring(bbrtc.REF_PREFIX.length))));
     } else if (data instanceof Uint8Array) {
