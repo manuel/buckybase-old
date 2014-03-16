@@ -4,48 +4,81 @@ bbrtc = Object.create(null);
 
 bbrtc.API_KEY = "kr3dz3x3wnuerk9";
 
-bbrtc.ON_DATA = "data";
-bbrtc.ON_CONNECTION = "connection";
+bbrtc.ON_PEER_OPEN = "open";
+bbrtc.ON_PEER_CONN = "connection";
+bbrtc.ON_PEER_CLOSE = "close";
+bbrtc.ON_PEER_ERROR = "error";
+
+bbrtc.ON_CONN_OPEN = "open";
+bbrtc.ON_CONN_DATA = "data";
+bbrtc.ON_CONN_CLOSE = "close";
+bbrtc.ON_CONN_ERROR = "error";
 
 bbrtc.OPTIONS = {
     key: bbrtc.API_KEY,
     reliable: true,
-    debug: 3,
-    logFunction: function() { console.log(Array.prototype.slice.call(arguments).join(" ")); },
-    config: { "iceServers": [{url:'stun:stun01.sipphone.com'},{url:'stun:stun.ekiga.net'}, {url:'stun:stun.fwdnet.net'}, {url:'stun:stun.ideasip.com'}, {url:'stun:stun.iptel.org'}, {url:'stun:stun.rixtelecom.se'}, {url:'stun:stun.schlund.de'}, {url:'stun:stun.l.google.com:19302'}, {url:'stun:stun1.l.google.com:19302'}, {url:'stun:stun2.l.google.com:19302'}, {url:'stun:stun3.l.google.com:19302'}, {url:'stun:stun4.l.google.com:19302'}, {url:'stun:stunserver.org'}, {url:'stun:stun.softjoys.com'}, {url:'stun:stun.voiparound.com'}, {url:'stun:stun.voipbuster.com'}, {url:'stun:stun.voipstunt.com'}, {url:'stun:stun.voxgratia.org'}, {url:'stun:stun.xten.com'}, { url: 'turn:numb.viagenie.ca', credential: 'muazkh', username: 'webrtc@live.com' }, { url: 'turn:192.158.29.39:3478?transport=udp', credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=', username: '28224511:1379330808' }, { url: 'turn:192.158.29.39:3478?transport=tcp', credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=', username: '28224511:1379330808' }]
- }
+    debug: 2,
+    config: {
+        "iceServers": [
+            { url: "stun:stun.l.google.com:19302" },
+            { url: "stun:stun1.l.google.com:19302" },
+            { url: "stun:stun2.l.google.com:19302" },
+            { url: "stun:stun3.l.google.com:19302" },
+            { url: "stun:stun4.l.google.com:19302" },
+            { url: "stun:stun.schlund.de" }
+        ]
+    },
+    logFunction: function() { console.log(Array.prototype.slice.call(arguments).join(" ")); }
 };
 
-bbrtc.make_peer = function(id) {
-    bbutil.assert_string(id);
-    var peer = new Peer(id, bbrtc.OPTIONS);
-    return peer;
+//// Local Base
+
+bbrtc.LocalBase = function LocalBase(id, repo) {
+    this.id = bbutil.assert_type(id, bbutil.UTF8);
+    this.repo = bbutil.assert_type(repo, bbcs.Repo);
+    this.peer = null;
+    bbrtc.local_base_init_peer(this);
 }
 
-bbrtc.make_server_peer = function(id) {
-    var peer = bbrtc.make_peer(id);
-    peer.on(bbrtc.ON_CONNECTION, bbrtc.on_server_connection);
-    return peer;
+bbrtc.make_local_base = function(id, repo) {
+    return new bbrtc.LocalBase(id, repo);
 }
 
-bbrtc.on_server_connection = function(conn) {
-    var repo = bbcs.make_idb_repo(bbutil.utf8_encode("main"));
-    bbcs.init_repo(
-        function() {
-            console.log("MAKING SERVER");
-            bbrtc.make_rtc_repo_server(repo, conn);
-        },
-        function(error) {
-            throw error;
-        },
-        repo
-    );
+bbrtc.local_base_init_peer = function(base) {
+    bbutil.assert_type(base, bbrtc.LocalBase);
+    console.log("Creating local peer: " + base.id);
+    base.peer = new Peer(bbutil.get_utf8_string(base.id), bbrtc.OPTIONS);
+    base.peer.on(bbrtc.ON_PEER_OPEN, function() {
+        console.log("Local peer ready.");
+    });
+    base.peer.on(bbrtc.ON_PEER_CONN, function(conn) {
+        bbrtc.init_remote_conn(base, conn);
+    });
+    base.peer.on(bbrtc.ON_PEER_ERROR, function(error) {
+        console.log("Local peer error: " + error);
+    });
+    base.peer.on(bbrtc.ON_PEER_CLOSE, function() {
+        console.log("Local peer closed.");
+    });
 }
 
-//// RTC Repo Server
+bbrtc.init_remote_conn = function(base, conn) {
+    bbutil.assert_type(base, bbrtc.LocalBase);
+    //bbutil.assert_type(conn, DataConnection);
+    conn.on(bbrtc.ON_CONN_OPEN, function() {
+        console.log("Connection from remote peer opened: " + conn.peer);
+    });
+    conn.on(bbrtc.ON_CONN_DATA, function(req) {
+        bbrtc.remote_conn_serve_request(base, conn, req);
+    });
+    conn.on(bbrtc.ON_CONN_ERROR, function(error) {
+        console.log("Error on connection from remote peer " + conn.peer + ": " + error);
+    });
+    conn.on(bbrtc.ON_CONN_CLOSE, function() {
+        console.log("Connection from remote peer closed: " + conn.peer);
+    });
+}
 
-// Serves wrapped repo over a reliable RTC connection.
-//
 // Requests it receives are UTF8 strings, equal to IDBRepo's keys
 // (e.g. "ref:refs/heads/master", or "obj:0316b39e0c53bdfa86521c4690d8e0ef5ffdb51a".
 //
@@ -61,103 +94,115 @@ bbrtc.REF_PREFIX = "ref:";
 bbrtc.OBJ_PREFIX = "obj:";
 bbrtc.ERR_PREFIX = "err:";
 
-bbrtc.RTCRepoServer = function RTCRepoServer(repo, conn) {
-    conn.on(bbrtc.ON_DATA, function(req) {
-        console.log("SERVER DATA");
-        bbutil.assert_string(req);
-        if (bbutil.string_starts_with(req, bbrtc.REF_PREFIX)) {
-            console.log("received ref request: " + req);
-            var ref_name = req.substring(bbrtc.REF_PREFIX.length);
-            var ref = bbcs.make_ref(bbutil.internal_make_utf8(ref_name));
-            bbcs.repo_get_ref(
-                function(hash) {
-                    console.log("SEND REF RES");
-                    conn.send(bbrtc.REF_PREFIX + hash.toString()); // ?
-                },
-                function(error) {
-                    console.log("SERVER ERROR");
-                    conn.send(bbrtc.ERR_PREFIX + error.toString());
-                },
-                repo,
-                ref
-            );
-        } else if (bbutil.string_starts_with(req, bbrtc.OBJ_PREFIX)) {
-            console.log("received object request: " + req);
-            var hex = req.substring(bbrtc.OBJ_PREFIX.length);
-            var hash = bbcs.make_hash(bbutil.hex_string_to_binary(hex));
-            bbcs.repo_get_object_binary(
-                function(bin) {
-                    console.log("SEND OBJ RES");
-                    conn.send(bin);
-                },
-                function(error) {
-                    console.log("SERVER ERROR");
-                    conn.send(bbrtc.ERR_PREFIX + error.toString());
-                },
-                repo,
-                hash
-            );            
-        } else {
-            console.log("SERVER ERROR");
-            conn.send(bbrtc.ERR_PREFIX + "Malformed request:" + req);
-        }
+bbrtc.remote_conn_serve_request = function(base, conn, req) {
+    bbutil.assert_type(base, bbrtc.LocalBase);
+    bbutil.assert_string(req);
+    if (bbutil.string_starts_with(req, bbrtc.REF_PREFIX)) {
+        var ref_name = req.substring(bbrtc.REF_PREFIX.length);
+        var ref = bbcs.make_ref(bbutil.internal_make_utf8(ref_name));
+        bbcs.repo_get_ref(
+            function(hash) {
+                console.log("Sending ref " + ref_name + " (" + hash.toString() + ") to remote peer: " + conn.peer);
+                conn.send(bbrtc.REF_PREFIX + hash.toString());
+            },
+            function(error) {
+                console.log("Repo error fetching ref " + ref_name + ": " + error.toString());
+                conn.send(bbrtc.ERR_PREFIX + error.toString());
+            },
+            base.repo,
+            ref
+        );
+    } else if (bbutil.string_starts_with(req, bbrtc.OBJ_PREFIX)) {
+        var hex = req.substring(bbrtc.OBJ_PREFIX.length);
+        var hash = bbcs.make_hash(bbutil.hex_string_to_binary(hex));
+        bbcs.repo_get_object_binary(
+            function(bin) {
+                console.log("Sending object " + hex +  " to remote peer: " + conn.peer);
+                conn.send(bin);
+            },
+            function(error) {
+                console.log("Repo error fetching object " + hex + ": " + error.toString());
+                conn.send(bbrtc.ERR_PREFIX + error.toString());
+            },
+            base.repo,
+            hash
+        );
+    } else {
+        console.log("Malformed request `" + req + "` from remote peer: " + conn.peer);
+        conn.send(bbrtc.ERR_PREFIX + "Malformed request: " + req);
+    }
+}
+
+bbrtc.RemoteRepo = function RemoteRepo(base, remote_id) {
+    this.base = bbutil.assert_type(base, bbrtc.LocalBase);
+    this.remote_id = bbutil.assert_type(remote_id, bbutil.UTF8);
+    this.conn = base.peer.connect(bbutil.get_utf8_string(remote_id));
+    this.requests = [];
+    bbrtc.setup_remote_repo(this);
+}
+
+bbrtc.RemoteRepo.prototype = new bbcs.Repo();
+
+bbrtc.Request = function Request(success, failure) {
+    this.success = bbutil.assert_type(success, Function);
+    this.failure = bbutil.assert_type(failure, Function);
+}
+
+bbrtc.make_remote_repo = function(base, remote_id) {
+    return new bbrtc.RemoteRepo(base, remote_id);
+}
+
+bbrtc.setup_remote_repo = function(repo) {
+    bbutil.assert_type(repo, bbrtc.RemoteRepo);
+    repo.conn.on(bbrtc.ON_CONN_OPEN, function() {
+        console.log("Connection to remote peer opened: " + repo.remote_id);
+    });
+    repo.conn.on(bbrtc.ON_CONN_DATA, function(data) {
+        bbrtc.remote_repo_handle_data(repo, data);
+    });
+    repo.conn.on(bbrtc.ON_CONN_CLOSE, function() {
+        console.log("Connection to remote peer closed: " + repo.remote_id);
+    });
+    repo.conn.on(bbrtc.ON_CONN_ERROR, function(error) {
+        console.log("Error on connection to remote peer " + repo.remote_id + ": " + error);
+        repo.requests = [];
+            repo.conn.close();
     });
 }
 
-bbrtc.make_rtc_repo_server = function(repo, conn) {
-    return new bbrtc.RTCRepoServer(repo, conn);
+bbrtc.remote_repo_handle_data = function(repo, data) {
+    bbutil.assert(repo.requests.length > 0);
+    var req = repo.requests[0];
+    repo.requests.unshift();
+    if (bbutil.is_string(data) && bbutil.string_starts_with(data, bbrtc.REF_PREFIX)) {
+        req.success(bbcs.make_hash(bbutil.hex_string_to_binary(data.substring(bbrtc.REF_PREFIX.length))));
+    } else if (data instanceof Uint8Array) {
+        req.success(data);
+    } else if (data instanceof ArrayBuffer) {
+        req.success(new Uint8Array(data));
+    } else {
+        req.failure("Received illegal data: " + data);
+    }
 }
 
-bbrtc.make_rtc_client_repo = function(peer) {
-    return new bbrtc.RTCClientRepo(peer);
+bbrtc.RemoteRepo.prototype.repo_get_ref = function(success, failure, repo, ref) {
+    if (repo.conn.open) {
+        var req = bbrtc.REF_PREFIX + ref.toString();
+        console.log("Requesting ref " + req + " from remote peer: " + repo.remote_id);
+        repo.requests.push(new bbrtc.Request(success, failure));
+        repo.conn.send(req);
+    } else {
+        failure("Tried sending on closed connection to remote peer: " + repo.remote_id);
+    }
 }
 
-bbrtc.RTCClientRepo = function RTCClientRepo(peer) {
-    this.peer = peer;
-    this.success = null;
-    this.failure = null;
-}
-
-bbrtc.RTCClientRepo.prototype = new bbcs.Repo();
-
-bbrtc.RTCClientRepo.prototype.init_repo = function(success, failure, repo) {
-    console.log("FSCK");
-    repo.peer.on("open", function(conn) {
-        console.log("CLIENT CONNECTED");
-        repo.peer.on(bbrtc.ON_DATA, function(data) {
-            console.log("CLIENT DATA");
-            if (bbutil.is_string(data) && bbutil.string_starts_with(data, bbrtc.REF_PREFIX)) {
-                repo.success(bbcs.make_hash(bbutil.hex_string_to_binary(data.substring(bbrtc.REF_PREFIX.length))));
-            } else if (data instanceof Uint8Array) {
-                repo.success(data);
-            } else if (data instanceof ArrayBuffer) {
-                repo.success(new Uint8Array(data));
-            } else {
-                repo.failure(data);
-            }
-        });
-        repo.peer.on(bbrtc.ON_ERROR, function(err) {
-            console.log("CLIENT ERROR");
-            repo.failure(err);
-        });
-        success(repo);
-    });
-}
-
-bbrtc.RTCClientRepo.prototype.repo_get_ref = function(success, failure, repo, ref) {
-    repo.success = success;
-    repo.failure = failure;
-    var ref_name = ref.toString(); // ?
-    var req = bbrtc.REF_PREFIX + ref_name;
-    console.log("SEND " + req);
-    repo.peer.send(req);
-}
-
-bbrtc.RTCClientRepo.prototype.repo_get_object_binary = function(success, failure, repo, hash) {
-    repo.success = success;
-    repo.failure = failure;
-    var hex = bbutil.binary_to_hex_string(bbcs.get_hash_array(hash));
-    var req = bbrtc.OBJ_PREFIX + hex;
-    console.log("SEND " + req);
-    repo.peer.send(req);
+bbrtc.RemoteRepo.prototype.repo_get_object_binary = function(success, failure, repo, hash) {
+    if (repo.conn.open) {
+        var req = bbrtc.OBJ_PREFIX + bbutil.binary_to_hex_string(bbcs.get_hash_array(hash));
+        console.log("Requesting object " + req + " from remote peer: " + repo.remote_id);
+        repo.requests.push(new bbrtc.Request(success, failure));
+        repo.conn.send(req);
+    } else {
+        failure("Tried sending on closed connection to remote peer: " + repo.remote_id);
+    }
 }

@@ -4,18 +4,7 @@ bbui.repo = null;
 bbui.vm = new wat.VM();
 
 bbui.on_load = function() {
-    var local = prompt("local ID");
-    var remote = prompt("remote ID");
-    console.log("local peer: " + local);
-    console.log("remote peer: " + remote);
-
-    bbui.local_peer = bbrtc.make_server_peer(local);
-    bbui.remote_peer = bbui.local_peer.connect(remote, bbrtc.OPTIONS);
-
-    bbui.repo = bbrtc.make_rtc_client_repo(bbui.remote_peer);
-        //bbcs.make_idb_repo(bbutil.utf8_encode("main"));
-    console.log("foo");
-
+    bbui.repo = bbcs.make_idb_repo(bbutil.utf8_encode("main"));
     bbui.vm.run(
 
         ["begin",
@@ -187,7 +176,6 @@ bbui.add_form_submit = function() {
 }
 
 bbui.redraw_ui = function() {
-    console.log("REDRAWING");
     $("#bbui_content").empty();
     bbui.run_wat(
         ["let*", [["root", ["bbui-root", ["bbui-repo"]]],
