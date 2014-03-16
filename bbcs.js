@@ -152,9 +152,18 @@ bbcs.make_committer = function(name, email, timestamp, timezone) {
     return new bbcs.Committer(name, email, timestamp, timezone);
 }
 
+bbcs.get_commit_tree = function(commit) {
+    return bbutil.assert_type(commit, bbcs.Commit).tree_hash;
+}
+
+bbcs.get_commit_parents = function(commit) {
+    return bbutil.assert_type(commit, bbcs.Commit).parent_hashes;
+}
+
 bbcs.Commit.prototype.toString = function() {
+    var parents = this.parent_hashes.map(function(ph) { return bbcs.COMMIT_PARENT + " " + ph.toString() }).join("\n");
     return bbcs.COMMIT_TREE + " " + this.tree_hash.toString() + "\n"
-        + this.parent_hashes.map(function(ph) { return bbcs.COMMIT_PARENT + " " + ph.toString() }).join("\n")
+        + (parents === "" ? "" : parents + "\n")
         + bbcs.COMMIT_AUTHOR + " " + this.author.toString() + "\n"
         + bbcs.COMMIT_COMMITTER + " " + this.committer.toString() + "\n"
         + "\n"

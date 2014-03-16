@@ -8,6 +8,10 @@ bbutil.UTF8 = function UTF8(utf8_string) {
     this.utf8_string = bbutil.assert_string(utf8_string);
 }
 
+bbutil.UTF8.prototype.toString = function() {
+    return this.utf8_string;
+}
+
 bbutil.internal_make_utf8 = function(utf8_string) {
     return new bbutil.UTF8(utf8_string);
 }
@@ -84,6 +88,14 @@ bbutil.binary_to_hex_string = function(binary) {
         ret += (binary[i] < 16 ? "0" : "") + binary[i].toString(16);
     }
     return ret;
+}
+
+// String utilities
+
+bbutil.string_starts_with = function(str, prefix) {
+    bbutil.assert_string(str);
+    bbutil.assert_string(prefix);
+    return str.indexOf(prefix) === 0;
 }
 
 // Sanity checking utilities

@@ -6,6 +6,7 @@
 <script src="lib/encoding-indexes.js" type="text/javascript"></script>
 <script src="lib/encoding.js" type="text/javascript"></script>
 <script src="lib/idbstore.min.js" type="text/javascript"></script>
+<script src="lib/jquery-2.1.0.min.js" type="text/javascript"></script>
 <script src="wat-js/wat.js" type="text/javascript"></script>
 <script src="wat-js/wat-basics.js" type="text/javascript"></script>
 <script src="ftumbler/ftumbler.js" type="text/javascript"></script>
@@ -16,6 +17,8 @@
 <script src="bbui.js" type="text/javascript"></script>
 </head>
 <body onload="bbui.on_load()">
-<input type="text" id="bb_input">
-<button id="bb_add">add</button>
+  <input type="text" id="bbui_input">
+  <button onclick="return bbui.add_form_submit()">add item</button>
+  <div id="bbui_content">
+  </div>
 </body>
