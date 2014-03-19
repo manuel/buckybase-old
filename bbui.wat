@@ -1,6 +1,8 @@
 ;; -*- mode: scheme -*-
 
 (define *bbui-prompt* '*bbui-prompt*)
+(define *bbui-local* (dnew null))
+(define *bbui-remote* (dnew null))
 
 (define (bbui-synchronize appv)
   (lambda args
@@ -28,6 +30,8 @@
 (define bbcs-make-tree-entry-for-blob (.make_tree_entry_for_blob @bbcs))
 (define bbcs-make-tree-entry-for-tree (.make_tree_entry_for_tree @bbcs))
 (define bbcs-get-tree-entry-hash (.get_tree_entry_hash @bbcs))
+(define bbcs-tree-entry-is-tree (.tree_entry_is_tree @bbcs))
+(define bbcs-tree-entry-is-blob (.tree_entry_is_blob @bbcs))
 (define bbcs-make-committer (.make_committer @bbcs))
 (define bbcs-make-commit (.make_commit @bbcs))
 (define bbcs-get-commit-tree (.get_commit_tree @bbcs))
@@ -37,6 +41,10 @@
 (define bbcs-get-git-data-binary (.get_git_data_binary @bbcs))
 (define bbcs-utc-timestamp (.utc_timestamp @bbcs))
 (define bbcs-utc-offset (.utc_offset @bbcs))
+
+(define bbrtc-make-local-base (.make_local_base @bbrtc))
+(define bbrtc-make-remote-repo (.make_remote_repo @bbrtc))
+(define bbrtc-remote-repo-is-connected (.remote_repo_is_connected @bbrtc))
 
 (define bbutil-utf8-encode (.utf8_encode @bbutil))
 (define bbutil-utf8-decode (.utf8_decode @bbutil))
@@ -75,6 +83,7 @@
     commit-hash))
 
 (define (bbui-repo-master-hash repo)
+  (log "Getting master hash")
   (bbcs-repo-get-ref repo +master+))
 
 (define (bbui-ensure-master repo)
@@ -118,30 +127,26 @@
     (bbui-log (#toString commit))
     (bbui-redraw-ui)))
 
-(define (bbui-pull local remote)
-  (let ((local-hash (bbui-repo-master-hash local))
-        (remote-hash (bbui-repo-master-hash remote)))
-    (if (=== (#toString local-hash) (#toString remote-hash))
-        (bbui-log "Local repo up-to-date.")
-        (bbui-do-pull local remote remote-hash))))
-
-(define (bbui-pull local remote-hash)
-  (bbui-log "Pulling remote repo."))
-
 (define (bbui-do-redraw-ui)
   (with-bbui-context
-    (let* ((root (bbui-root (bbui-repo)))
-           (names (array-to-list (bbcs-tree-names root))))
-      (map-list
-       (lambda (name)
-         (let ((hash (bbcs-get-tree-entry-hash (bbcs-tree-get root name))))
-           (bbui-draw-item name (bbcs-repo-get-object (bbui-repo) hash))))
-       names))))
+    (draw-repo (dref *bbui-repo*))
+    (draw-repo (.remote_repo @bbui))))
+
+(define (draw-repo repo)
+  (let* ((root (bbui-root repo))
+         (names (array-to-list (bbcs-tree-names root))))
+    (map-list
+     (lambda (name)
+       (let ((hash (bbcs-get-tree-entry-hash (bbcs-tree-get root name))))
+         (bbui-draw-item name (bbcs-repo-get-object repo hash))))
+     names)))
 
 (define (call-with-bbui-context fun)
   (push-prompt *bbui-prompt*
     (dlet *bbui-repo* (.repo @bbui)
-      (fun))))
+      (dlet *bbui-local* (.local @bbui)
+        (dlet *bbui-remote* (.remote @bbui)
+          (fun))))))
 
 (define-macro (with-bbui-context . body)
   (list call-with-bbui-context (list* lambda () body)))
@@ -150,11 +155,94 @@
   (with-bbui-context
    (bbui-put-item (bbui-repo) (bbui-new-todo-item-name (bbui-root (bbui-repo))) content)))
 
+;;;; 
+
+(define *thread-prompt* '*thread-prompt*)
+
+(define (thread-spawn fun)
+  (push-prompt *thread-prompt*
+    (fun)))
+
+(define (thread-sleep ms)
+  (take-subcont *thread-prompt* k
+    (define (callback . ignore)
+      (push-prompt *thread-prompt*
+        (with-bbui-context
+          (push-subcont k))))
+    (@setTimeout (js-callback callback) ms)))
+
+(define (bbui-remote-repo-thread base remote-id rrepo)
+  (define (init-remote-repo)
+    (bbui-log (+ "Attempting connection to remote: " remote-id))
+    (bbrtc-make-remote-repo base remote-id))
+  (let ((remote-repo (init-remote-repo)))
+    (loop
+      (thread-sleep 5000)
+      (bbui-log "Looping")
+      (if (bbrtc-remote-repo-is-connected remote-repo)
+          (bbui-pull rrepo remote-repo)
+          (set! remote-repo (init-remote-repo))))))
+
+(define (bbui-pull local remote)
+  (let* ((local-hash (bbui-repo-master-hash local))
+         (remote-hash (bbui-repo-master-hash remote)))
+    (if (&& (!== local-hash null)
+            (=== (#toString local-hash) (#toString remote-hash)))
+        (bbui-log "Local repo up-to-date.")
+        (begin
+          (bbui-do-pull local remote remote-hash)
+          (bbui-redraw-ui)))))
+
+(define (bbui-do-pull local remote remote-hash)
+  (bbui-log (+ "Pulling commit from remote: " remote-hash))
+  (let* ((commit (bbcs-repo-get-object remote remote-hash))
+         (tree-hash (bbcs-get-commit-tree commit)))
+    (bbui-pull-tree local remote tree-hash)
+    (let* ((commit-data (bbcs-object-to-git-data commit))
+           (commit-hash (bbcs-get-git-data-hash commit-data))
+           (commit-binary (bbcs-get-git-data-binary commit-data)))
+      (bbcs-repo-put-object-binary local commit-hash commit-binary)
+      (bbcs-repo-put-ref local +master+ commit-hash))))
+
+(define (bbui-pull-tree local remote tree-hash)
+  (let ((local-tree (bbcs-repo-get-object local tree-hash)))
+    (if (=== null local-tree)
+        (let ((tree (bbcs-repo-get-object remote tree-hash)))
+          (map-list (lambda (name)
+                      (let* ((entry (bbcs-tree-get tree name))
+                             (hash (bbcs-get-tree-entry-hash entry)))
+                        (if (bbcs-tree-entry-is-blob entry)
+                            (bbui-pull-blob local remote hash)
+                            (bbui-pull-tree local remote hash))))
+                    (array-to-list (bbcs-tree-names tree)))
+          (let* ((tree-data (bbcs-object-to-git-data tree))
+                 (tree-hash (bbcs-get-git-data-hash tree-data))
+                 (tree-binary (bbcs-get-git-data-binary tree-data)))
+            (bbcs-repo-put-object-binary local tree-hash tree-binary)))
+        (bbui-log (+ "Already have: " tree-hash)))))
+
+(define (bbui-pull-blob local remote hash)
+  (let ((local-blob (bbcs-repo-get-object local hash)))
+    (if (=== null local-blob)
+        (let* ((blob (bbcs-repo-get-object remote hash))
+               (blob-data (bbcs-object-to-git-data blob))
+               (blob-hash (bbcs-get-git-data-hash blob-data))
+               (blob-binary (bbcs-get-git-data-binary blob-data)))
+          (bbcs-repo-put-object-binary local hash blob-binary))
+        (bbui-log (+ "Already have: " hash)))))
+
+;;;; Main
+
+(define (bbui-start-sync-threads local-id remote-id repo rrepo)
+  (let ((base (bbrtc-make-local-base local-id repo)))
+    (thread-spawn (lambda () (bbui-remote-repo-thread base remote-id rrepo)))))
+
 (with-bbui-context
   (let* ((repo (bbcs-init-repo (bbui-repo)))
+         (remote-repo (bbcs-init-repo (.remote_repo @bbui)))
          (master-hash (bbui-ensure-master repo))
          (commit (bbcs-repo-get-object repo master-hash)))
     (bbui-log (+ "Master: " master-hash))
     (bbui-log (#toString commit))
-    (bbui-redraw-ui)))
-
+    (bbui-redraw-ui)
+    (bbui-start-sync-threads (dref *bbui-local*) (dref *bbui-remote*) repo remote-repo)))

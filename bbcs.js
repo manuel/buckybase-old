@@ -99,6 +99,14 @@ bbcs.get_tree_entry_type = function(entry) {
     return bbutil.assert_type(entry, bbcs.TreeEntry).type;
 }
 
+bbcs.tree_entry_is_blob = function(entry) {
+    return bbcs.get_tree_entry_type(entry) === bbcs.BLOB_TYPE;
+}
+
+bbcs.tree_entry_is_tree = function(entry) {
+    return bbcs.get_tree_entry_type(entry) === bbcs.TREE_TYPE;
+}
+
 bbcs.assert_tree_entry_type = function(type) {
     bbutil.assert((type === bbcs.TREE_TYPE) || (type === bbcs.BLOB_TYPE));
     return type;

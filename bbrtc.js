@@ -43,7 +43,7 @@ bbrtc.LocalBase = function LocalBase(id, repo) {
 bbrtc.RemoteRepo = function RemoteRepo(base, remote_id) {
     this.base = bbutil.assert_type(base, bbrtc.LocalBase);
     this.remote_id = bbutil.assert_type(remote_id, bbutil.UTF8);
-    this.conn = base.peer.connect(bbutil.get_utf8_string(remote_id));
+    this.conn = base.peer.connect(bbutil.get_utf8_string(remote_id), bbrtc.OPTIONS);
     this.requests = [];
     bbrtc.setup_remote_repo(this);
 }
@@ -177,13 +177,15 @@ bbrtc.setup_remote_repo = function(repo) {
 
 bbrtc.remote_repo_handle_data = function(repo, data) {
     bbutil.assert(repo.requests.length > 0);
-    var req = repo.requests[0];
-    repo.requests = repo.requests.unshift();
+    var req = repo.requests.shift();
     if (bbutil.is_string(data) && bbutil.string_starts_with(data, bbrtc.REF_PREFIX)) {
+        console.log("Received ref " + data);
         req.success(bbcs.make_hash(bbutil.hex_string_to_binary(data.substring(bbrtc.REF_PREFIX.length))));
     } else if (data instanceof Uint8Array) {
+        console.log("Received object.");
         req.success(data);
     } else if (data instanceof ArrayBuffer) {
+        console.log("Received object.");
         req.success(new Uint8Array(data));
     } else {
         req.failure("Received illegal data: " + data);

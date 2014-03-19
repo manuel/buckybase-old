@@ -1,19 +1,21 @@
 var bbui = Object.create(null);
 
-bbui.repo = null;
-bbui.base = null;
+bbui.local = null;
 bbui.remote = null;
 bbui.vm = new wat.VM();
 
 bbui.on_load = function() {
-//    var local = bbutil.utf8_encode(prompt("Local ID"));
-//    var remote = bbutil.utf8_encode(prompt("Remote ID"));
-
+    bbui.local = bbutil.utf8_encode(prompt("Local ID"));
+    bbui.remote = bbutil.utf8_encode(prompt("Remote ID"));
     bbui.repo = bbcs.make_idb_repo(bbutil.utf8_encode("main"));
-//    bbui.base = bbrtc.make_local_base(local, bbui.repo);
+    bbui.remote_repo = bbcs.make_idb_repo(bbui.remote);
+    bbui.load_file("bbui.wat");
+    bbui.load_file("wat-js/test.wat");
+}
 
+bbui.load_file = function(name) {
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "bbui.wat", true);
+    xhr.open("GET", name + "?" + Math.random(), true);
     xhr.onload = function (e) {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
@@ -27,7 +29,6 @@ bbui.on_load = function() {
         console.error(xhr.statusText);
     };
     xhr.send(null);
-
 }
 
 bbui.new_todo_item_name = function(tree) {
