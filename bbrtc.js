@@ -40,6 +40,16 @@ bbrtc.LocalBase = function LocalBase(id, repo) {
     bbrtc.local_base_init_peer(this);
 }
 
+bbrtc.RemoteRepo = function RemoteRepo(base, remote_id) {
+    this.base = bbutil.assert_type(base, bbrtc.LocalBase);
+    this.remote_id = bbutil.assert_type(remote_id, bbutil.UTF8);
+    this.conn = base.peer.connect(bbutil.get_utf8_string(remote_id));
+    this.requests = [];
+    bbrtc.setup_remote_repo(this);
+}
+
+bbrtc.RemoteRepo.prototype = new bbcs.Repo();
+
 bbrtc.make_local_base = function(id, repo) {
     return new bbrtc.LocalBase(id, repo);
 }
@@ -60,6 +70,11 @@ bbrtc.local_base_init_peer = function(base) {
     base.peer.on(bbrtc.ON_PEER_CLOSE, function() {
         console.log("Local peer closed.");
     });
+}
+
+bbrtc.local_base_is_connected = function(base) {
+    bbutil.assert_type(base, bbrtc.LocalBase);
+    return !base.peer.disconnected;
 }
 
 bbrtc.init_remote_conn = function(base, conn) {
@@ -133,16 +148,6 @@ bbrtc.remote_conn_serve_request = function(base, conn, req) {
     }
 }
 
-bbrtc.RemoteRepo = function RemoteRepo(base, remote_id) {
-    this.base = bbutil.assert_type(base, bbrtc.LocalBase);
-    this.remote_id = bbutil.assert_type(remote_id, bbutil.UTF8);
-    this.conn = base.peer.connect(bbutil.get_utf8_string(remote_id));
-    this.requests = [];
-    bbrtc.setup_remote_repo(this);
-}
-
-bbrtc.RemoteRepo.prototype = new bbcs.Repo();
-
 bbrtc.Request = function Request(success, failure) {
     this.success = bbutil.assert_type(success, Function);
     this.failure = bbutil.assert_type(failure, Function);
@@ -186,7 +191,7 @@ bbrtc.remote_repo_handle_data = function(repo, data) {
 }
 
 bbrtc.RemoteRepo.prototype.repo_get_ref = function(success, failure, repo, ref) {
-    if (repo.conn.open) {
+    if (bbrtc.remote_repo_is_connected(repo)) {
         var req = bbrtc.REF_PREFIX + ref.toString();
         console.log("Requesting ref " + req + " from remote peer: " + repo.remote_id);
         repo.requests.push(new bbrtc.Request(success, failure));
@@ -197,7 +202,7 @@ bbrtc.RemoteRepo.prototype.repo_get_ref = function(success, failure, repo, ref) 
 }
 
 bbrtc.RemoteRepo.prototype.repo_get_object_binary = function(success, failure, repo, hash) {
-    if (repo.conn.open) {
+    if (bbrtc.remote_repo_is_connected(repo)) {
         var req = bbrtc.OBJ_PREFIX + bbutil.binary_to_hex_string(bbcs.get_hash_array(hash));
         console.log("Requesting object " + req + " from remote peer: " + repo.remote_id);
         repo.requests.push(new bbrtc.Request(success, failure));
@@ -206,3 +211,9 @@ bbrtc.RemoteRepo.prototype.repo_get_object_binary = function(success, failure, r
         failure("Tried sending on closed connection to remote peer: " + repo.remote_id);
     }
 }
+
+bbrtc.remote_repo_is_connected = function(repo) {
+    bbutil.assert_type(repo, bbrtc.RemoteRepo);
+    return repo.conn.open;
+}
+

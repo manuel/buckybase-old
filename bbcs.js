@@ -63,7 +63,8 @@ bbcs.tree_put = function(tree, name, entry) {
 bbcs.tree_get = function(tree, name) {
     bbutil.assert_type(tree, bbcs.Tree);
     bbutil.assert_type(name, bbutil.UTF8);
-    return tree.entries[bbutil.get_utf8_string(name)];
+    var entry = tree.entries[bbutil.get_utf8_string(name)];
+    return entry !== undefined ? entry : null;
 }
 
 bbcs.tree_names = function(tree) {
